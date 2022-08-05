@@ -1,2 +1,2 @@
 # couchbeans
-Distributed JVM eventing service
+Distributed reactive spring boot environment with couchbase backend
