@@ -31,12 +31,12 @@ public class CouchbaseClassLoader extends ClassLoader {
 
     public CouchbaseClassLoader() {
         this(
-                System.getProperty("com.couchbase.classloader.cluster"),
-                System.getProperty("com.couchbase.classloader.username"),
-                System.getProperty("com.couchbase.classloader.password"),
-                System.getProperty("com.couchbase.classloader.bucket"),
-                System.getProperty("com.couchbase.classloader.scope"),
-                System.getProperty("com.couchbase.classloader.collection")
+                System.getProperty("com.couchbeans.cluster"),
+                System.getProperty("com.couchbeans.username"),
+                System.getProperty("com.couchbeans.password"),
+                System.getProperty("com.couchbeans.bucket"),
+                System.getProperty("com.couchbeans.scope"),
+                System.getProperty("com.couchbeans.class_collection")
         );
     }
 

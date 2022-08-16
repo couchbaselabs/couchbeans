@@ -25,7 +25,12 @@ dependencies {
     implementation 'com.google.guava:guava:30.1.1-jre'
     implementation 'com.couchbase.client:java-client:3.3.3'
     implementation 'org.springframework.boot:spring-boot-starter-data-couchbase'
+    implementation 'org.javassist:javassist:3.21.0-GA'
     implementation 'org.springframework.boot:spring-boot-starter-data-couchbase-reactive'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+}
+
+test {
+    useJUnitPlatform()
 }
