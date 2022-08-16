@@ -1,4 +1,4 @@
-package com;
+package com.couchbeans;
 
 import com.couchbase.client.java.Collection;
 import javassist.CannotCompileException;
@@ -6,14 +6,12 @@ import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.NotFoundException;
-import org.checkerframework.checker.units.qual.C;
 import org.junit.jupiter.api.Test;
 import org.mockito.DoNotMock;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.io.DataOutputStream;
