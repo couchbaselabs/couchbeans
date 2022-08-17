@@ -1,4 +1,4 @@
-package com.couchbeans;
+package com.couchbeans.couchbase;
 
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonObject;

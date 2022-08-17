@@ -1,4 +1,4 @@
-package com.couchbeans;
+package com.couchbeans.couchbase;
 
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
