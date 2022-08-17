@@ -53,16 +53,15 @@ public class BeanUploader {
 
     public static void main(String[] args) {
         cluster = Cluster.connect(
-                System.getenv("CB_ADDRESS"),
-                System.getenv("CB_USERNAME"),
-                System.getenv("CB_PASSWORD")
+                System.getenv("CBB_ADDRESS"),
+                System.getenv("CBB_USERNAME"),
+                System.getenv("CBB_PASSWORD")
         );
-        bucket = cluster.bucket(System.getenv("CB_BUCKET"));
-        scope = bucket.scope(System.getenv("CB_SCOPE"));
+        bucket = cluster.bucket(System.getenv("CBB_BUCKET"));
+        scope = bucket.scope(System.getenv("CBB_SCOPE"));
         env = System.getenv();
-        classCollection = scope.collection(env.getOrDefault("CB_CLASS_STORE", ("cbb_classes")));
-        metaCollection = scope.collection(env.getOrDefault("CB_META_STORE", ("cbb_meta")));
-
+        classCollection = scope.collection(env.getOrDefault("CBB_CLASS_STORE", ("cbb_classes")));
+        metaCollection = scope.collection(env.getOrDefault("CBB_META_STORE", ("cbb_meta")));
 
         processPaths(args);
     }
@@ -112,7 +111,7 @@ public class BeanUploader {
 
         meta.put("name", name);
         JsonArray interfaces = JsonArray.create();
-        Arrays.stream(cf.getInterfaces()).forEach(i -> interfaces.add(i));
+        Arrays.stream(cf.getInterfaces()).forEach(interfaces::add);
         meta.put("interfaces", interfaces);
 
         JsonArray metaAnnotations = JsonArray.create();
@@ -125,6 +124,7 @@ public class BeanUploader {
         ((List<MethodInfo>)cf.getMethods()).stream()
                 .forEach(mi -> {
                     JsonObject methodInfo = JsonObject.create();
+                    methods.add(methodInfo);
                     methodInfo.put("name", mi.getName());
                     methodInfo.put("descriptor", mi.getDescriptor());
                     JsonArray methodAnnotations = JsonArray.create();

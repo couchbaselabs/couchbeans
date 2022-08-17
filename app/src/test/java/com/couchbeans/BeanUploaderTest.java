@@ -1,6 +1,7 @@
 package com.couchbeans;
 
 import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.json.JsonObject;
 import javassist.CannotCompileException;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
@@ -40,7 +41,7 @@ public class BeanUploaderTest {
         Collection code = Mockito.mock(Collection.class);
 
         Answer loggingAnswer = it -> {
-            LOG.info("Class metadata: id = {}; value = {}", it.getArgument(0).toString(), it.getArgument( 1).toString());
+            LOG.info("Class metadata document: id = {}; value = {}", it.getArgument(0).toString(), it.getArgument( 1, JsonObject.class).toString());
             return null;
         };
 
