@@ -1,5 +1,5 @@
 # couchbeans
-Distributed reactive spring boot environment with couchbase backend. 
+Distributed reactive jvm environment with couchbase backend. 
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 
