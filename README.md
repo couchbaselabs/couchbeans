@@ -1,4 +1,4 @@
-# couchbeans
+## couchbeans
 Distributed reactive jvm environment with couchbase backend. 
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
@@ -13,6 +13,7 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 - unload objects from memory
 
 ## DCP doc mutation event
+- load mutated bean and call any present setters for all changed fields
 - in linked to mutated doc beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
 - store each returned bean and call all methods that use that bean or that bean and mutated doc.
 - store all changed beans
@@ -21,4 +22,11 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 ## DCP doc deletion event
 - call destructors on the doc bean and all linked to it beans
 - delete the beans
- 
+
+## Node affinity
+- the service should run on every node that runs index service
+- DCP events should be processed on the node to which the document belongs
+
+## Long-running tasks
+Applications should perform long-running tasks asynchronously. 
+For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `Server.running` boolean field, can start a new thread for web server's socker listener.
