@@ -29,4 +29,11 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 
 ## Long-running tasks
 Applications should perform long-running tasks asynchronously. 
-For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `Server.running` boolean field, can start a new thread for web server's socker listener.
+For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
+
+## Singletons
+Beans marked with `@Singleton` annotation are processed differently:
+- updates to singleton bean fields are processed on all nodes (although updates to linked beans are still processed on their corresponding nodes)
+- singletons should be kept in memory at all times on all nodes.
+
+So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Singleton` and it will run on every node in the cluster that runs couchbeans.
