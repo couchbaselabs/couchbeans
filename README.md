@@ -1,12 +1,13 @@
 # couchbeans
 (Under development)
+
 Distributed reactive jvm environment with couchbase backend. 
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 # (Very) Loose descripion of how this would work:
 ## DCP doc creation event
 - find all constructors that accept doc type as argument
-- create all beans were created doc would be the only argument
+- create all beans where created doc would be the only argument
 - Repeat until all beans created or unable to create any beans:
   - using previously created beans as arguments, create more beans
   - convert created beans to documents an store them on the cluster (which would trigger cascading doc creation events)
