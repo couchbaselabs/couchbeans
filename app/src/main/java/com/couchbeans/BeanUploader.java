@@ -1,13 +1,8 @@
-package com.couchbeans.couchbase;
+package com.couchbeans;
 
-import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
-import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
-import com.couchbase.client.java.kv.GetResult;
-import com.couchbeans.BeanMethod;
 import javassist.bytecode.AnnotationDefaultAttribute;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.AttributeInfo;
@@ -40,19 +35,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class BeanUploader {
-    private static Cluster cluster;
-    private static Bucket bucket;
-    private static Scope scope;
     private static Collection
             classCollection,
             metaCollection;
@@ -60,17 +50,10 @@ public class BeanUploader {
     private static Map<String, String> env;
 
     public static void main(String[] args) {
-        cluster = Cluster.connect(
-                System.getenv("CBB_ADDRESS"),
-                System.getenv("CBB_USERNAME"),
-                System.getenv("CBB_PASSWORD")
-        );
-        bucket = cluster.bucket(System.getenv("CBB_BUCKET"));
-        scope = bucket.scope(System.getenv("CBB_SCOPE"));
-        env = System.getenv();
-        classCollection = scope.collection(env.getOrDefault("CBB_CLASS_STORE", ("cbb_classes")));
-        metaCollection = scope.collection(env.getOrDefault("CBB_META_STORE", ("cbb_meta")));
+        classCollection = Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME);
+        metaCollection = Couchbeans.SCOPE.collection(App.METHOD_COLLECTION_NAME);
 
+        ensureDbStructure();
         processPaths(args);
     }
 
@@ -78,6 +61,14 @@ public class BeanUploader {
         metaCollection = meta;
         classCollection = classes;
         processPaths(sources);
+    }
+
+    protected static void ensureDbStructure() {
+        Utils.createCollectionIfNotExists(App.CLASS_COLLECTION_NAME);
+        Utils.createPrimaryIndexIfNotExists(App.CLASS_COLLECTION_NAME);
+        Utils.createCollectionIfNotExists(App.METHOD_COLLECTION_NAME);
+        Utils.createPrimaryIndexIfNotExists(App.METHOD_COLLECTION_NAME);
+        Utils.createIndexIfNotExists(App.METHOD_COLLECTION_NAME, "className", "name", "arguments");
     }
 
     private static void processPaths(String[] sources) {

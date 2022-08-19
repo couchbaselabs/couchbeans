@@ -2,6 +2,7 @@ package com.couchbeans.couchbase;
 
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonObject;
+import com.couchbeans.BeanUploader;
 import javassist.CannotCompileException;
 import javassist.ClassClassPath;
 import javassist.ClassPool;

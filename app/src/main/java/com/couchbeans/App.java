@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class App {
+    public static final String CLASS_COLLECTION_NAME = Utils.collectionName(Class.class);
+    public static final String METHOD_COLLECTION_NAME = Utils.collectionName(BeanMethod.class);
+
     public String getGreeting() {
         return "Hello World!";
     }
