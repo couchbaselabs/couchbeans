@@ -26,6 +26,10 @@ import java.io.IOException;
 public class BeanUploaderTest {
     private static final Logger LOG = LoggerFactory.getLogger(BeanUploaderTest.class);
 
+    public void methodWithArguments(String argument1, Integer argument2) {
+
+    }
+
     @Test
     public void testMain() throws IOException, CannotCompileException, NotFoundException {
         File source = File.createTempFile("test", ".class");

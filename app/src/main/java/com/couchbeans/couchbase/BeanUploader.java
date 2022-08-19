@@ -7,11 +7,15 @@ import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.kv.GetResult;
+import com.couchbeans.BeanMethod;
 import javassist.bytecode.AnnotationDefaultAttribute;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.AttributeInfo;
 import javassist.bytecode.ClassFile;
+import javassist.bytecode.ConstPool;
+import javassist.bytecode.LocalVariableAttribute;
 import javassist.bytecode.MethodInfo;
+import javassist.bytecode.MethodParametersAttribute;
 import javassist.bytecode.annotation.Annotation;
 import javassist.bytecode.annotation.AnnotationMemberValue;
 import javassist.bytecode.annotation.ArrayMemberValue;
@@ -35,11 +39,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class BeanUploader {
     private static Cluster cluster;
@@ -106,34 +114,27 @@ public class BeanUploader {
         ClassFile cf = new ClassFile(new DataInputStream(bin));
         String name = cf.getName();
 
-        GetResult r = metaCollection.get(name);
-        JsonObject meta = (r != null) ? r.contentAsObject() : JsonObject.create();
-
-        meta.put("name", name);
-        JsonArray interfaces = JsonArray.create();
-        Arrays.stream(cf.getInterfaces()).forEach(interfaces::add);
-        meta.put("interfaces", interfaces);
-
-        JsonArray metaAnnotations = JsonArray.create();
-        meta.put("annotations", metaAnnotations);
-        JsonArray methods = JsonArray.create();
-        meta.put("methods", methods);
-        ((List<AttributeInfo>) cf.getAttributes()).stream()
-                .forEach(ai -> processAtributeInfo(ai, metaAnnotations));
-
-        ((List<MethodInfo>)cf.getMethods()).stream()
+        ((List<MethodInfo>) cf.getMethods()).stream()
                 .forEach(mi -> {
-                    JsonObject methodInfo = JsonObject.create();
-                    methods.add(methodInfo);
-                    methodInfo.put("name", mi.getName());
-                    methodInfo.put("descriptor", mi.getDescriptor());
-                    JsonArray methodAnnotations = JsonArray.create();
-                    methodInfo.put("annotations", methodAnnotations);
-                    ((List<AttributeInfo>)mi.getAttributes()).stream()
-                            .forEach(ai -> processAtributeInfo(ai, methodAnnotations));
+                    BeanMethod method = new BeanMethod(cf.getName(), mi.getName(), getMethodArguments(mi));
+                    metaCollection.upsert(method.getHash(), method.toJsonObject());
                 });
+    }
 
-        metaCollection.upsert(name, meta);
+    private static List<String> getMethodArguments(MethodInfo info) {
+        ConstPool cpool = info.getConstPool();
+        LocalVariableAttribute table = (LocalVariableAttribute) info.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
+        MethodParametersAttribute params = (MethodParametersAttribute) info.getAttribute(MethodParametersAttribute.tag);
+
+        if (table != null && params != null) {
+            int[] paramNames = IntStream.range(0, params.size()).map(params::name).toArray();
+            return IntStream.range(0, table.tableLength())
+                    .filter(i -> Arrays.binarySearch(paramNames, table.nameIndex(i)) > -1)
+                    .boxed()
+                    .map(table::descriptor)
+                    .collect(Collectors.toList());
+        }
+        return Collections.EMPTY_LIST;
     }
 
     private static void processAtributeInfo(AttributeInfo ai, JsonArray target) {
