@@ -10,11 +10,11 @@ public class Utils {
     }
 
     public static String collectionRef(String collection) {
-        return String.format("`%s`.`%s`.`%s`", Couchbeans.BUCKET_NAME, Couchbeans.SCOPE_NAME, collection);
+        return String.format("`%s`.`%s`.`%s`", Couchbeans.CBB_BUCKET, Couchbeans.CBB_SCOPE, collection);
     }
 
     public static String inlineCollectionRef(String collection) {
-        return String.format("%s_%s_%s", Couchbeans.BUCKET_NAME, Couchbeans.SCOPE_NAME, collection);
+        return String.format("%s_%s_%s", Couchbeans.CBB_BUCKET, Couchbeans.CBB_SCOPE, collection);
     }
 
     public static void createCollectionIfNotExists(String collection) {
