@@ -1,8 +1,5 @@
 package com.couchbeans;
 
-import com.couchbase.client.core.cnc.events.config.CollectionMapRefreshSucceededEvent;
-import com.couchbase.client.core.io.CollectionIdentifier;
-import com.couchbase.client.core.io.CollectionMap;
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
 import com.couchbase.client.dcp.DataEventHandler;
@@ -14,13 +11,13 @@ import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import org.apache.logging.log4j.message.Message;
+import com.couchbase.client.java.json.JsonObject;
+import com.couchbase.client.java.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.couchbase.repository.query.CouchbaseEntityInformation;
 
-import java.util.Map;
-import java.util.function.Consumer;
+import java.lang.reflect.Method;
+import java.util.stream.Stream;
 
 public class DCPListener implements DataEventHandler, ControlEventHandler {
 
@@ -55,17 +52,9 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
     @Override
     public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-        CollectionsManifest manifest = getCurrentManifest(MessageUtil.getVbucket(event));
 
         if (DcpMutationMessage.is(event)) {
-            CollectionIdAndKey ckey = MessageUtil.getCollectionIdAndKey(event, true);
-            CollectionsManifest.CollectionInfo cinfo = manifest.getCollection(ckey.collectionId());
-
-            LOGGER.info("DCP Mutation message.\n\tCollection: {};\n\tKey: {};\n\tContent:{}\n\tMessage: {}",
-                    cinfo.name(),
-                    ckey.key(),
-                    MessageUtil.getContentAsString(event),
-                    DcpMutationMessage.toString(event));
+            processMutation(event);
         }
         event.release();
     }
@@ -75,4 +64,58 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
                 .get(vbucket)
                 .getCollectionsManifest();
     }
+
+    private static void processMutation(ByteBuf event) {
+        CollectionIdAndKey ckey = MessageUtil.getCollectionIdAndKey(event, true);
+        CollectionsManifest manifest = getCurrentManifest(MessageUtil.getVbucket(event));
+        CollectionsManifest.CollectionInfo cinfo = manifest.getCollection(ckey.collectionId());
+        String className = cinfo.name();
+
+        Class targetClass;
+        Object bean;
+
+        LOGGER.info("DCP Mutation message.\n\tCollection: {};\n\tKey: {};\n\tContent:{}\n\tMessage: {}",
+                cinfo.name(),
+                ckey.key(),
+                MessageUtil.getContentAsString(event),
+                DcpMutationMessage.toString(event));
+
+        if (className.equals("_default")) {
+            if (isJson(event)) {
+                targetClass = JsonValue.class;
+                bean = Couchbeans.SERIALIZER.deserialize(targetClass, MessageUtil.getContentAsByteArray(event));
+            } else {
+                targetClass = byte[].class;
+                bean = MessageUtil.getContentAsByteArray(event);
+            }
+        } else {
+            try {
+                targetClass = Class.forName(className);
+                bean = Couchbeans.SERIALIZER.deserialize(targetClass, MessageUtil.getContentAsByteArray(event));
+            } catch (ClassNotFoundException e) {
+                LOGGER.error("Failed to load class " + className, e);
+                return;
+            }
+        }
+
+        Couchbeans.KEY.put(bean, ckey.key());
+
+    }
+
+    public static Stream<Object> processBean(Object bean) {
+        Class beanType = bean.getClass();
+
+        return null;
+    }
+
+    private static boolean isJson(ByteBuf event) {
+        final int flags = DcpMutationMessage.flags(event);
+        final int commonFlags = flags >> 24;
+        if (commonFlags == 0) {
+            return flags == 0;
+        }
+
+        return (commonFlags & 0xf) == 2;
+    }
+
 }

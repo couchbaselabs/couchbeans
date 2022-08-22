@@ -1,12 +1,20 @@
 package com.couchbeans;
 
+import com.couchbase.client.java.json.JsonArray;
+import com.couchbase.client.java.query.QueryOptions;
+
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class Utils {
     public static String collectionName(Class from) {
         return from.getCanonicalName()
                 .replaceAll("\\.", "-");
+    }
+
+    public static Class collectionClass(String collectionName) throws ClassNotFoundException {
+        return Class.forName(collectionName.replaceAll("-", "."));
     }
 
     public static String collectionRef(String collection) {
@@ -47,5 +55,22 @@ public class Utils {
 
     public static String envOrDefault(String name, String defaultValue) {
         return System.getenv().getOrDefault(name, defaultValue);
+    }
+
+    public static List<BeanLink> findLinkedBeans(Object source) {
+        String sourceKey = Couchbeans.KEY.get(source);
+        if (sourceKey == null) {
+            throw new IllegalArgumentException("Unknown bean: " + source);
+        }
+
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2",
+                        collectionRef(collectionName(source.getClass()))
+                ),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        source.getClass().getCanonicalName(),
+                        sourceKey
+                ))
+        ).rowsAs(BeanLink.class);
     }
 }
