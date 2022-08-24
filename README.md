@@ -64,19 +64,19 @@ For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to ch
 - the service should run on every node that runs data service
 - DCP events should be processed on the node to which the document belongs
 
-### External nodes
-External nodes are nodes that run Couchbeans without running couchbase. 
-These nodes can only process local beans and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
-External nodes are intended to be used as:
-- Data collection agents
-- External system gateways
-- Graph editing stations
+### Internal nodes
+Internal nodes are nodes that run Couchbeans together with Couchbase data service.
 
-### Foreign beans
-Couchbeans bean uploader instruments the following bean methods, changing their behavior on nodes other than the node that should be handling bean DCP events:
-- Setter methods are forced to only set the field value
-- `linkTo` and `linkFrom` methods create links instead of processing them
-- `update...` methods store provided beans onto the cluster and always return `null`
+### External nodes
+External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans.
+External nodes can be used to provide services outside of couchbase cluster, for example for load balncing.
+
+### Foreign nodes
+These nodes can only process local beans and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
+External nodes are intended to be used for:
+- Collecting data 
+- External system integrations
+- Graph editing
 
 ### Global beans
 Beans marked with `@Global` annotation are processed differently:
@@ -91,3 +91,17 @@ So, returning to the previous example, to launch a web-server on all nodes, mark
 
 Local beans are not stored on the cluster and processed locally on the node.
 Local beans can still be linked to other beans.
+
+### Internal beans
+Internal beans are represented by protected classes and never handled or available on any other than internal nodes.
+
+### External beans
+Global and local beans can be marked with `@External` annotation. 
+External beans 
+
+### Foreign beans
+Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
+Couchbeans bean uploader instruments the following bean methods, changing their behavior on nodes other than the node that should be handling bean DCP events:
+- Setter methods are forced to only set the field value
+- `linkTo` and `linkFrom` methods create links instead of processing them
+- `update...` methods store provided beans onto the cluster and always return `null`
