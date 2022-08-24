@@ -77,14 +77,14 @@ Couchbeans bean uploader instruments the following bean methods, changing their 
 - `linkTo` and `linkFrom` methods create links instead of processing them
 - `update...` methods store provided beans onto the cluster and always return `null`
 
-## Global beans
+### Global beans
 Beans marked with `@Global` annotation are processed differently:
 - updates to singleton bean fields are processed on all nodes (although updates to linked beans are still processed on their corresponding nodes)
 - singletons should be kept in memory at all times on all nodes.
 
 So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Singleton` and it will run on every node in the cluster that runs couchbeans.
 
-## Local beans
+### Local beans
 – All beans under `java` package
 — All beans marked with `@Local` annotation
 
