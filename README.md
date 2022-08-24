@@ -5,7 +5,22 @@ Distributed reactive jvm environment with couchbase backend.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 # (Very) Loose descripion of how this would work:
-## DCP doc creation event
+## Uploading bean definitions
+### Via CLI
+This project provides `com.couchbeans.BeanUploader` main class that accepts paths to directories, jars and class files and recursively uploads class definitions and metadata as bean definitions onto couchbase cluster. Use environment to configure bean destinations:
+```
+CBB_CLUSTER="localhost"
+CBB_USERNAME="Administrator"
+CBB_BUCKET="default"
+CBB_SCOPE="_default"
+```
+### Via gradle task
+- Publish provided gradle plugin to local maven repository by running `gradle publishPluginMavenPublicationToMavenLocal`
+- add maven local as plugin management repository in your `settings.gradle` (see `example/settings.gradle`)
+- add plugin with id `couchbeans` and version `0.0.1` onto your `build.gradle` (see `example/build.gradle`)
+- configure couchbase connection parameters using `cluster`, `username`, `password`, `bucket` and `scope` parameters of `couchbase` project extension (see `example/build.gradle`)
+- run `gradle uploadCouchbeans` to 
+## DCP doc creation event (implemented)
 - find all constructors that accept doc type as argument
 - create all beans where created doc would be the only argument
 - Repeat until all beans created or unable to create any beans:
@@ -14,7 +29,7 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
   - store links from argument beans to created from them beans
 - unload objects from memory
 
-## DCP doc mutation event
+## DCP doc mutation event (implemented)
 - load mutated bean and call any present setters for all changed fields
 - in linked to mutated doc beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
 - store each returned bean and call all methods that use that bean or that bean and mutated doc.
