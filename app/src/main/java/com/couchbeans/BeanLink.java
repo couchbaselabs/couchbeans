@@ -14,16 +14,9 @@ public class BeanLink {
 
     public BeanLink(Object source, Object target) {
         this.sourceType = source.getClass().getCanonicalName();
-        this.sourceKey = Couchbeans.KEY.get(source);
+        this.sourceKey = Couchbeans.key(source);
         this.targetType = target.getClass().getCanonicalName();
-        this.targetKey = Couchbeans.KEY.get(target);
-
-        if (sourceKey == null) {
-            throw new RuntimeException("Unknown source bean: " + source);
-        }
-        if (targetKey == null) {
-            throw new RuntimeException("Unknown target bean: " + target);
-        }
+        this.targetKey = Couchbeans.key(target);
     }
 
     public String sourceType() {

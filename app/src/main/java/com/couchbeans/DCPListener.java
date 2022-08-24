@@ -33,11 +33,13 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
             .build();
 
     public static void main(String... args) {
+        Thread.currentThread().setContextClassLoader(new CouchbaseClassLoader(Thread.currentThread().getContextClassLoader()));
         CLIENT.controlEventHandler(INSTANCE);
         CLIENT.dataEventHandler(INSTANCE);
 
+
         CLIENT.connect().block();
-        CLIENT.initializeState(StreamFrom.NOW, StreamTo.INFINITY).block();
+        CLIENT.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).block();
         CLIENT.startStreaming().block();
         try {
             while (true) {
@@ -52,7 +54,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
     @Override
     public void onEvent(ChannelFlowController flowController, ByteBuf event) {
-
+        // TODO: add some magic that detects if this mutation belongs to this node
         if (DcpMutationMessage.is(event)) {
             processMutation(event);
         }
@@ -82,7 +84,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
         if (className.equals("_default")) {
             if (isJson(event)) {
-                targetClass = JsonValue.class;
+                targetClass = JsonObject.class;
                 bean = Couchbeans.SERIALIZER.deserialize(targetClass, MessageUtil.getContentAsByteArray(event));
             } else {
                 targetClass = byte[].class;
@@ -99,7 +101,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         }
 
         Couchbeans.KEY.put(bean, ckey.key());
-
+        MutationTreeWalker.processBeanUpdate(bean);
     }
 
     public static Stream<Object> processBean(Object bean) {

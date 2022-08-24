@@ -10,10 +10,7 @@ public class App {
     public static final String CLASS_COLLECTION_NAME = Utils.collectionName(Class.class);
     public static final String METHOD_COLLECTION_NAME = Utils.collectionName(BeanMethod.class);
 
-    public String getGreeting() {
-        return "Hello World!";
-    }
     public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+        DCPListener.main(args);
     }
 }
