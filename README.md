@@ -5,6 +5,7 @@ Distributed reactive jvm environment with couchbase backend.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 # (Very) Loose descripion of how this would work:
+![Couchbeans graph events flow](https://user-images.githubusercontent.com/807041/186473829-1d9d4502-88c5-422c-89c5-0f97497c002f.png)
 ## Uploading bean definitions
 ### Via CLI
 This project provides `com.couchbeans.BeanUploader` main class that accepts paths to directories, jars and class files and recursively uploads class definitions and metadata as bean definitions onto couchbase cluster. Use environment to configure bean destinations:
