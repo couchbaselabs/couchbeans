@@ -85,8 +85,8 @@ Beans marked with `@Global` annotation are processed differently:
 So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Singleton` and it will run on every node in the cluster that runs couchbeans.
 
 ### Local beans
-– All beans under `java` package
-— All beans marked with `@Local` annotation
+- All beans under `java` package
+- All beans marked with `@Local` annotation
 
 Local beans are not stored on the cluster and processed locally on the node.
 Local beans can still be linked to other beans.
