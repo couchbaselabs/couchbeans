@@ -3,11 +3,17 @@ package com.couchbeans;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.NotFoundException;
 import javassist.bytecode.AnnotationDefaultAttribute;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.AttributeInfo;
 import javassist.bytecode.ClassFile;
+import javassist.bytecode.CodeAttribute;
 import javassist.bytecode.ConstPool;
+import javassist.bytecode.Descriptor;
 import javassist.bytecode.LocalVariableAttribute;
 import javassist.bytecode.MethodInfo;
 import javassist.bytecode.MethodParametersAttribute;
@@ -34,11 +40,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -125,7 +133,7 @@ public class BeanUploader {
                     .filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
                     .forEach(BeanUploader::processPath);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to process directory '" + directory.toString() + "'" , e);
+            throw new RuntimeException("Failed to process directory '" + directory.toString() + "'", e);
         }
     }
 
@@ -139,20 +147,125 @@ public class BeanUploader {
 
     private static void processClass(InputStream source) throws Exception {
         BufferedInputStream bin = new BufferedInputStream(source);
-        ClassFile cf = new ClassFile(new DataInputStream(bin));
-        String name = cf.getName();
+        CtClass ctClass = ClassPool.getDefault().makeClass(bin);
+        String name = ctClass.getName();
 
-        ((List<MethodInfo>) cf.getMethods()).stream()
+        Arrays.stream(ctClass.getMethods())
                 .forEach(mi -> {
-                    BeanMethod method = new BeanMethod(cf.getName(), mi.getName(), getMethodArguments(mi));
-                    metaCollection.upsert(method.getHash(), method.toJsonObject());
+                    List<String> arguments = getMethodArguments(mi.getMethodInfo().getDescriptor());
+                    if (arguments.size() > 0) {
+                        BeanMethod method = new BeanMethod(mi.getDeclaringClass().getName(), mi.getName(), arguments);
+                        System.out.println("Upserting bean method " + mi.getSignature() + ": " + method.toJsonObject().toString());
+                        metaCollection.upsert(method.getHash(), method.toJsonObject());
+                    }
                 });
+    }
+
+    private static List<String> getMethodArguments(CtMethod info) {
+        try {
+            return Arrays.stream(Descriptor.getParameterTypes(info.getSignature(), ClassPool.getDefault()))
+                    .map(ctClass -> ctClass.getName()).collect(Collectors.toList());
+        } catch (NotFoundException e) {
+            return Collections.EMPTY_LIST;
+        }
+    }
+
+    private static List<String> getMethodArguments(String signature) {
+        signature = signature.substring(signature.indexOf("(")+1);
+        System.out.println("Parsing signature: " + signature);
+        if (signature.lastIndexOf(")") == 0) {
+            return Collections.EMPTY_LIST;
+        }
+        int n = Descriptor.numOfParameters(signature);
+        List<String> result = new ArrayList<>();
+        for (int i = 0; i < signature.lastIndexOf(")"); ) {
+            String name = toCtClassName(signature, i);
+            i += name.length() + 2;
+            result.add(name);
+        }
+        return result;
+    }
+
+
+    private static String toCtClassName(String desc, int i) {
+        int i2;
+        String name;
+
+        int arrayDim = 0;
+        char c = desc.charAt(i);
+        while (c == '[') {
+            ++arrayDim;
+            c = desc.charAt(++i);
+        }
+
+        if (c == 'L') {
+            i2 = desc.indexOf(';', ++i);
+            return desc.substring(i, i2++).replace('/', '.');
+        } else {
+            CtClass type = toPrimitiveClass(c);
+            if (type == null)
+                throw new RuntimeException("Unknown type: " + c);
+            else
+                name = type.getName();
+        }
+
+        if (arrayDim > 0) {
+            StringBuffer sbuf = new StringBuffer(name);
+            while (arrayDim-- > 0)
+                sbuf.append("[]");
+
+            name = sbuf.toString();
+        }
+
+        return name;
+    }
+
+    static CtClass toPrimitiveClass(char c) {
+        CtClass type = null;
+        switch (c) {
+            case 'Z':
+                type = CtClass.booleanType;
+                break;
+            case 'C':
+                type = CtClass.charType;
+                break;
+            case 'B':
+                type = CtClass.byteType;
+                break;
+            case 'S':
+                type = CtClass.shortType;
+                break;
+            case 'I':
+                type = CtClass.intType;
+                break;
+            case 'J':
+                type = CtClass.longType;
+                break;
+            case 'F':
+                type = CtClass.floatType;
+                break;
+            case 'D':
+                type = CtClass.doubleType;
+                break;
+            case 'V':
+                type = CtClass.voidType;
+                break;
+        }
+
+        return type;
     }
 
     private static List<String> getMethodArguments(MethodInfo info) {
         ConstPool cpool = info.getConstPool();
         LocalVariableAttribute table = (LocalVariableAttribute) info.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
         MethodParametersAttribute params = (MethodParametersAttribute) info.getAttribute(MethodParametersAttribute.tag);
+        if (params == null) {
+            CodeAttribute ca = info.getCodeAttribute();
+            if (ca != null) {
+                System.out.println("Getting params attribute for method '" + info + "' using CodeAttribute");
+                params = (MethodParametersAttribute) ca.getAttribute(MethodParametersAttribute.tag);
+            }
+        }
 
         if (table != null && params != null) {
             int[] paramNames = IntStream.range(0, params.size()).map(params::name).toArray();
@@ -162,6 +275,9 @@ public class BeanUploader {
                     .map(table::descriptor)
                     .collect(Collectors.toList());
         }
+        System.out.println("Did not find arguments for method " + info.toString());
+        System.out.println("Table: " + Objects.toString(table));
+        System.out.println("Params: " + Objects.toString(params));
         return Collections.EMPTY_LIST;
     }
 

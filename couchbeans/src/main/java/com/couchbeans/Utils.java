@@ -35,6 +35,11 @@ public class Utils {
 
     public static void createCollectionIfNotExists(String collection) {
         Couchbeans.CLUSTER.query(String.format("CREATE COLLECTION %s IF NOT EXISTS", collectionRef(collection)));
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void createCollectionIfNotExists(Class type) {

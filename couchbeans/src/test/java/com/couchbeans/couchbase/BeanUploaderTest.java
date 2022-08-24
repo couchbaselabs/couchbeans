@@ -8,13 +8,11 @@ import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.NotFoundException;
-import org.junit.jupiter.api.Test;
-import org.mockito.DoNotMock;
+import org.junit.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -22,8 +20,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 
-@DoNotMock
-@Component
 public class BeanUploaderTest {
     private static final Logger LOG = LoggerFactory.getLogger(BeanUploaderTest.class);
 
@@ -46,7 +42,7 @@ public class BeanUploaderTest {
         Collection code = Mockito.mock(Collection.class);
 
         Answer loggingAnswer = it -> {
-            LOG.info("Class metadata document: id = {}; value = {}", it.getArgument(0).toString(), it.getArgument( 1, JsonObject.class).toString());
+            LOG.info("Class metadata document: id = {}; value = {}", it.getArgumentAt(0, String.class), it.getArgumentAt( 1, JsonObject.class).toString());
             return null;
         };
 
