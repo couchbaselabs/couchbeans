@@ -69,13 +69,12 @@ Internal nodes are nodes that run Couchbeans together with Couchbase data servic
 
 ### External nodes
 External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans.
-External nodes can be used to provide services outside of couchbase cluster, for example for load balncing.
-
+External nodes can be used to provide services outside of couchbase cluster, for example for load balncing or external system inegrations.
+  
 ### Foreign nodes
 These nodes can only process local beans and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
 External nodes are intended to be used for:
 - Collecting data 
-- External system integrations
 - Graph editing
 
 ### Global beans
