@@ -92,7 +92,7 @@ So, returning to the previous example, to launch a web-server on all nodes, mark
 
 Local beans are not stored on the cluster and processed locally on the node.
 Local beans can still be linked to other beans.
-Local beans are always present in all bean update/creation contexts.
+Local beans are always present in all bean update/creation contexts that are being handled on the node.
 
 ### Internal beans
 Internal beans are represented by protected classes and never handled or available on any other than internal nodes.
