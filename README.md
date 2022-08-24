@@ -31,9 +31,9 @@ CBB_SCOPE="_default"
 - unload objects from memory
 
 ## DCP doc mutation event (implemented)
-- load mutated bean and call any present setters for all changed fields
-- in linked to mutated doc beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
-- store each returned bean and call all methods that use that bean or that bean and mutated doc.
+- load mutated bean and call any present setters for all changed fields 
+- in parent beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
+- repeat for all parent beans, propagating the event up the graph
 - store all changed beans
 - unload objects from memory
 
