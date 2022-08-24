@@ -73,7 +73,7 @@ External nodes can be used to provide services outside of couchbase cluster, for
   
 ### Foreign nodes
 These nodes can only process local beans and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
-External nodes are intended to be used for:
+Foreign nodes are intended to be used for:
 - Collecting data 
 - Graph editing
 
