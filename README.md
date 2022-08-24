@@ -72,7 +72,8 @@ External nodes are nodes that run Couchbeans without running Couchbase data serv
 External nodes can be used to provide services outside of couchbase cluster, for example for load balncing or external system inegrations.
   
 ### Foreign nodes
-These nodes can only process local beans and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
+Foreign nodes are applications that use Couchbeans as a library wihout starting DcpListener.
+These nodes can only query beans, process local beans, and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
 Foreign nodes are intended to be used for:
 - Collecting data 
 - Graph editing
