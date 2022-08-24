@@ -95,8 +95,8 @@ Local beans can still be linked to other beans.
 Internal beans are represented by protected classes and never handled or available on any other than internal nodes.
 
 ### External beans
-Global and local beans can be marked with `@External` annotation. 
-External beans 
+Beans can be marked with `@External` annotation. 
+External beans are global and processed only on external nodes.
 
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
