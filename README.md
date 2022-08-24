@@ -22,7 +22,12 @@ CBB_SCOPE="_default"
 - add maven local as plugin management repository in your `settings.gradle` (see `example/settings.gradle`)
 - add plugin with id `couchbeans` and version `0.0.1` onto your `build.gradle` (see `example/build.gradle`)
 - configure couchbase connection parameters using `cluster`, `username`, `password`, `bucket` and `scope` parameters of `couchbase` project extension (see `example/build.gradle`)
-- run `gradle uploadCouchbeans` to 
+- run `gradle uploadCouchbeans` to upload classes from project jars onto a couchbeans bucket
+
+## Launching a node
+Use `com.couchbeans.DcpListener` main class to launch a node. 
+Use same environment variables as with `com.couchbeans.BeanUploader` to configure couchbase connection.
+
 ## DCP doc creation event (implemented)
 - find all constructors that accept doc type as argument
 - create all beans where created doc would be the only argument
