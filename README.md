@@ -49,12 +49,12 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 ## Bean link event
 - Call methods that start with "linkTo" and accept the parent bean type 
 - Handle the event by calling parent bean methods with names that start with "linkFrom" and accept the linked bean type
-- Handle parent beans as changed and propagate the changes up the graph
+- Propagate the event up the graph by calling `linkFrom` methods that accept types matching types of the nodes from the linked node to the parent node.
 
 ## Bean unlink event
 - Call methods that start with "unlinkTo" and accept the parent bean type
 - Handle the event by calling this parent bean methods with names that start with "unlinkFrom" and accept the unlinked bean type
-- Handle parent beans as changed and propagate the changes up the graph
+- Propagate the event up the graph by calling `unlinkFrom` methods that accept types matching types of the nodes from the unlinked node to the parent node.
 
 ## Long-running tasks
 Applications should perform long-running tasks asynchronously. 
