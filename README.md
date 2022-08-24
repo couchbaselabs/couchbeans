@@ -32,7 +32,7 @@ CBB_SCOPE="_default"
   - store links from argument beans to created from them beans
 
 ## DCP doc mutation event (implemented)
-- load mutated bean and call any present setters for all changed fields 
+- if the bean is global, then get mutated bean and call any present setters for all changed fields 
 - in parent beans, find all methods with names starting with "update" and doc type as argument, then call them, storing parent and returned beans into mutation context
 - repeat for all parent and returned beans, propagating the event up the graph
 - store all changed beans
@@ -59,9 +59,16 @@ CBB_SCOPE="_default"
 Applications should perform long-running tasks asynchronously. 
 For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
 
-## Singletons
-Beans marked with `@Singleton` annotation are processed differently:
+## Global beans
+Beans marked with `@Global` annotation are processed differently:
 - updates to singleton bean fields are processed on all nodes (although updates to linked beans are still processed on their corresponding nodes)
 - singletons should be kept in memory at all times on all nodes.
 
 So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Singleton` and it will run on every node in the cluster that runs couchbeans.
+
+## Local beans
+– All beans under `java` package
+— All beans marked with `@Local` annotation
+
+Local beans are not stored on the cluster and processed locally on the node.
+Local beans can still be linked to other beans.
