@@ -42,11 +42,13 @@ CBB_SCOPE="_default"
 - delete the beans
 
 ## Bean link event
-- Handle the event by calling parent bean methods with names that start with "link" and accept the linked bean type
+- Call methods that start with "linkTo" and accept the parent bean type 
+- Handle the event by calling parent bean methods with names that start with "linkFrom" and accept the linked bean type
 - Handle parent beans as changed and propagate the changes up the graph
 
 ## Bean unlink event
-- Handle the event by calling parent bean methods with names that start with "unlink" and accept the unlinked bean type
+- Call methods that start with "unlinkTo" and accept the parent bean type
+- Handle the event by calling this parent bean methods with names that start with "unlinkFrom" and accept the unlinked bean type
 - Handle parent beans as changed and propagate the changes up the graph
 
 ## Node affinity
