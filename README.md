@@ -64,6 +64,13 @@ For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to ch
 - the service should run on every node that runs data service
 - DCP events should be processed on the node to which the document belongs
 
+### External nodes
+External nodes are nodes that run Couchbeans without running couchbase. 
+These nodes process only local and global beans and are intended to be used as:
+- Data collection agents
+- External system gateways
+- Graph editing stations
+
 ### Foreign beans
 Couchbeans bean uploader instruments the following bean methods, changing their behavior on nodes other than the node that should be handling bean DCP events:
 - Setter methods are forced to only set the field value
