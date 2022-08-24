@@ -26,3 +26,11 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+couchbeans {
+    cluster = 'localhost'
+    username = 'Administrator'
+    password = 'password'
+    bucket = 'default'
+    scope = '_default'
+}
