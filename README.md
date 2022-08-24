@@ -1,7 +1,7 @@
 # couchbeans
 (Under development)
 
-Distributed reactive jvm environment with couchbase backend. 
+Distributed reactive jvm environment with couchbase backend that turns a couchbase bucket into a graph database using java class structures as graph definitions.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 # (Very) Loose descripion of how this would work:
