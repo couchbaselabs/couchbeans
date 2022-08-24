@@ -42,7 +42,7 @@ CBB_SCOPE="_default"
 - delete the beans
 
 ## Node affinity
-- the service should run on every node that runs index service
+- the service should run on every node that runs data service
 - DCP events should be processed on the node to which the document belongs
 
 ## Long-running tasks
