@@ -5,7 +5,7 @@ Distributed reactive jvm environment with couchbase backend.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
 # (Very) Loose descripion of how this would work:
-![Couchbeans graph events flow(3)](https://user-images.githubusercontent.com/807041/186480031-f2824d19-a046-495c-a008-8a88ee27c92a.png)
+![Couchbeans graph events flow(4)](https://user-images.githubusercontent.com/807041/186480114-76e69b37-fd7c-45e8-a865-c994967397c3.png)
 
 ## Uploading bean definitions
 ### Via CLI
