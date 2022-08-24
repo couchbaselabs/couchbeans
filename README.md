@@ -90,8 +90,8 @@ So, returning to the previous example, to launch a web-server on all nodes, mark
 - All beans under `java` package
 - All beans marked with `@Local` annotation
 
-Local beans are not stored on the cluster and processed locally on the node.
-Local beans can still be linked to other beans.
+Local beans are not stored on the cluster and are processed locally on the node.
+Local beans can still be linked to other beans but these links will not appear on any other nodes.
 Local beans are always present in all bean update/creation contexts that are being handled on the node.
 
 ### Internal beans
