@@ -66,7 +66,8 @@ For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to ch
 
 ### External nodes
 External nodes are nodes that run Couchbeans without running couchbase. 
-These nodes process only local and global beans and are intended to be used as:
+These nodes can only process local beans and create beans.
+External nodes are intended to be used as:
 - Data collection agents
 - External system gateways
 - Graph editing stations
