@@ -11,6 +11,7 @@ This project provides `com.couchbeans.BeanUploader` main class that accepts path
 ```
 CBB_CLUSTER="localhost"
 CBB_USERNAME="Administrator"
+CBB_PASSWORD="password"
 CBB_BUCKET="default"
 CBB_SCOPE="_default"
 ```
