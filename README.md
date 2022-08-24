@@ -56,13 +56,19 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 - Handle the event by calling this parent bean methods with names that start with "unlinkFrom" and accept the unlinked bean type
 - Handle parent beans as changed and propagate the changes up the graph
 
+## Long-running tasks
+Applications should perform long-running tasks asynchronously. 
+For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
+
 ## Node affinity
 - the service should run on every node that runs data service
 - DCP events should be processed on the node to which the document belongs
 
-## Long-running tasks
-Applications should perform long-running tasks asynchronously. 
-For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
+### Foreign beans
+Couchbeans bean uploader instruments the following bean methods, changing their behavior on nodes other than the node that should be handling bean DCP events:
+- Setter methods are forced to only set the field value
+- `linkTo` and `linkFrom` methods create links instead of processing them
+- `update...` methods store provided beans onto the cluster and always return `null`
 
 ## Global beans
 Beans marked with `@Global` annotation are processed differently:
