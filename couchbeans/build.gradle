@@ -10,12 +10,18 @@ plugins {
     id 'org.springframework.boot' version '2.7.2'
     id 'io.spring.dependency-management' version '1.0.12.RELEASE'
     id 'java'
+    id 'groovy'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
 }
 
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
+
+group = "com.couchbase"
+version = "0.0.1"
 
 dependencies {
     // Use JUnit test framework.
@@ -24,7 +30,6 @@ dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:30.1.1-jre'
     implementation 'com.couchbase.client:java-client:3.3.3'
-    implementation 'org.springframework.boot:spring-boot-starter-data-couchbase'
     implementation 'org.javassist:javassist:3.21.0-GA'
     implementation 'com.couchbase.client:dcp-client:0.40.0'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
@@ -33,4 +38,13 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+gradlePlugin {
+     plugins {
+         simplePlugin {
+             id = 'couchbeans'
+             implementationClass = 'com.couchbeans.gradle.CouchbeansGradlePlugin'
+         }
+     }
 }

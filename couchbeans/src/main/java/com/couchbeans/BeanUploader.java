@@ -31,16 +31,21 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 public class BeanUploader {
     private static Collection
@@ -82,8 +87,11 @@ public class BeanUploader {
 
     private static void processPath(Path path) {
         try {
+            System.out.println("Processing path: " + path.toString() + " (is jar: " + path.toString().endsWith(".jar") + ")");
             if (path.toFile().isDirectory()) {
                 processDirectory(path);
+            } else if (path.toString().endsWith(".jar")) {
+                processJar(path);
             } else {
                 processFile(path);
             }
@@ -92,16 +100,45 @@ public class BeanUploader {
         }
     }
 
+    private static void processJar(Path path) throws Exception {
+        processZipStream(new FileInputStream(path.toFile()));
+    }
+
+    private static void processZipStream(InputStream is) throws Exception {
+        ZipInputStream zis = new ZipInputStream(is);
+        ZipEntry entry;
+        while ((entry = zis.getNextEntry()) != null) {
+            if (!entry.isDirectory()) {
+                if (entry.getName().endsWith(".class")) {
+                    processClass(zis);
+                } else if (entry.getName().endsWith(".jar")) {
+                    processZipStream(zis);
+                }
+            }
+            zis.closeEntry();
+        }
+    }
+
     private static void processDirectory(Path directory) throws IOException {
         try (Stream<Path> files = Files.walk(directory)) {
             files
                     .filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
                     .forEach(BeanUploader::processPath);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process directory '" + directory.toString() + "'" , e);
         }
     }
 
-    private static void processFile(Path path) throws IOException {
-        BufferedInputStream bin = new BufferedInputStream(new FileInputStream(path.toFile()));
+    private static void processFile(Path path) throws Exception {
+        try {
+            processClass(new FileInputStream(path.toFile()));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process file '" + path.toString() + "'", e);
+        }
+    }
+
+    private static void processClass(InputStream source) throws Exception {
+        BufferedInputStream bin = new BufferedInputStream(source);
         ClassFile cf = new ClassFile(new DataInputStream(bin));
         String name = cf.getName();
 

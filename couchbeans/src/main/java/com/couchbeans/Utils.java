@@ -1,19 +1,10 @@
 package com.couchbeans;
 
-import com.couchbase.client.dcp.deps.io.netty.handler.codec.serialization.ObjectEncoder;
-import com.couchbase.client.java.codec.DefaultJsonSerializer;
+import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.java.json.JsonArray;
-import com.couchbase.client.java.json.JsonObject;
-import com.couchbase.client.java.kv.GetResult;
 import com.couchbase.client.java.query.QueryOptions;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Converter;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,8 +61,14 @@ public class Utils {
         ));
     }
 
+    private static final Map<String, String> ENV = new HashMap<>(System.getenv());
+
+    public static void envOverride(String name, String value) {
+        ENV.put(name, value);
+    }
+
     public static String envOrDefault(String name, String defaultValue) {
-        return System.getenv().getOrDefault(name, defaultValue);
+        return ENV.getOrDefault(name, defaultValue);
     }
 
     public static List<BeanLink> findLinkedBeans(Object source) {

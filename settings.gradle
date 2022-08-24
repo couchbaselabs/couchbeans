@@ -8,4 +8,6 @@
  */
 
 rootProject.name = 'couchbeans'
-include('app')
+include('couchbeans')
+//include 'example'
+
