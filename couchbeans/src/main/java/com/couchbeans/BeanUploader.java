@@ -151,6 +151,7 @@ public class BeanUploader {
         String name = ctClass.getName();
 
         Arrays.stream(ctClass.getMethods())
+                .filter(mi -> !mi.getDeclaringClass().getName().equals(Object.class.getCanonicalName()))
                 .forEach(mi -> {
                     List<String> arguments = getMethodArguments(mi.getMethodInfo().getDescriptor());
                     if (arguments.size() > 0) {
