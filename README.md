@@ -28,17 +28,15 @@ CBB_SCOPE="_default"
   - using previously created beans as arguments, create more beans
   - convert created beans to documents an store them on the cluster (which would trigger cascading doc creation events)
   - store links from argument beans to created from them beans
-- unload objects from memory
 
 ## DCP doc mutation event (implemented)
 - load mutated bean and call any present setters for all changed fields 
 - in parent beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
 - repeat for all parent beans, propagating the event up the graph
 - store all changed beans
-- unload objects from memory
 
 ## DCP doc deletion event
-- call destructors on the doc bean and all linked to it beans
+- call destructors on the doc bean and all linked to it beans (desctructors? in Java? what is that?!)
 - delete the beans
 
 ## Node affinity
