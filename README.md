@@ -33,13 +33,21 @@ CBB_SCOPE="_default"
 
 ## DCP doc mutation event (implemented)
 - load mutated bean and call any present setters for all changed fields 
-- in parent beans, find all methods with doc type as argument, and call them, storing returned beans into mutation context
-- repeat for all parent beans, propagating the event up the graph
+- in parent beans, find all methods with names starting with "update" and doc type as argument, then call them, storing parent and returned beans into mutation context
+- repeat for all parent and returned beans, propagating the event up the graph
 - store all changed beans
 
 ## DCP doc deletion event
 - call destructors on the doc bean and all linked to it beans (desctructors? in Java? what is that?!)
 - delete the beans
+
+## Bean link event
+- Handle the event by calling parent bean methods with names that start with "link" and accept the linked bean type
+- Handle parent beans as changed and propagate the changes up the graph
+
+## Bean unlink event
+- Handle the event by calling parent bean methods with names that start with "unlink" and accept the unlinked bean type
+- Handle parent beans as changed and propagate the changes up the graph
 
 ## Node affinity
 - the service should run on every node that runs data service
