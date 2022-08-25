@@ -3,8 +3,14 @@ package com.couchbeans;
 import com.couchbase.client.core.cnc.EventBus;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.ClusterOptions;
 import com.couchbase.client.java.Scope;
+import com.couchbase.client.java.codec.JacksonJsonSerializer;
 import com.couchbase.client.java.codec.JsonSerializer;
+import com.couchbase.client.java.env.ClusterEnvironment;
+import com.couchbase.client.java.json.JsonObject;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,10 +41,14 @@ public class Couchbeans {
     protected static final Map<Object, String> KEY = Collections.synchronizedMap(new WeakHashMap<>());
 
     static {
+        Utils.MAPPER.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+        Utils.MAPPER.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+
         CLUSTER = Cluster.connect(
                 CBB_CLUSTER,
-                CBB_USERNAME,
-                CBB_PASSWORD
+                ClusterOptions.clusterOptions(CBB_USERNAME, CBB_PASSWORD).environment(ClusterEnvironment.builder().jsonSerializer(
+                        JacksonJsonSerializer.create(Utils.MAPPER)
+                ).build())
         );
         BUCKET = CLUSTER.bucket(CBB_BUCKET);
         SCOPE = BUCKET.scope(CBB_SCOPE);
@@ -80,8 +90,9 @@ public class Couchbeans {
     }
 
     public static CompletableFuture<Void> store(Object bean) {
-        key(bean);
-        return CompletableFuture.failedFuture(new Exception("Not implemented yet"));
+        return CompletableFuture.runAsync(() -> {
+            SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key(bean), bean);
+        });
     }
 
     public static CompletableFuture<Void> delete(Object bean) {

@@ -1,7 +1,8 @@
 package com.couchbeans;
 
-import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonProcessingException;
 import com.couchbase.client.java.json.JsonObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.Streams;
 import org.apache.tools.ant.util.StreamUtils;
 import org.codehaus.groovy.ast.tools.BeanUtils;
@@ -73,6 +74,8 @@ public class BeanInfo {
             Object bean = Utils.MAPPER.readValue(lastAppliedSource, beanType());
             Couchbeans.KEY.put(bean, beanKey);
             return bean;
+        } catch (JsonMappingException e) {
+            return null;
         } catch (JsonProcessingException e) {
             return null;
         }
