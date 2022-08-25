@@ -1,7 +1,11 @@
+import couchbeans.annotations.Index;
+
 import java.util.List;
 
 public class User {
+    @Index
     private String username;
+    @Index
     private String email;
     private List<String> rooms;
 

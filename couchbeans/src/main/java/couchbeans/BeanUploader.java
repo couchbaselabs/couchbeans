@@ -80,7 +80,12 @@ public class BeanUploader {
                 .flatMap(path -> processPath(cp, path).stream())
                 .forEach(ci -> {
                     try {
-                        Class type = cp.get(ci.className()).toClass(BeanUploader.class.getClassLoader(), null);
+                        Class type;
+                        try {
+                            type = Class.forName(ci.className(), true, CouchbaseClassLoader.INSTANCE);
+                        } catch (ClassNotFoundException cnfe) {
+                            type = cp.get(ci.className()).toClass(CouchbaseClassLoader.INSTANCE, null);
+                        }
                         if (ci.beanType().isAutoCreated()) {
                                 Object bean = Class.forName(ci.className(), true, CouchbaseClassLoader.INSTANCE).getConstructor().newInstance();
                                 System.out.println("Creating singleton for bean " + ci.className());
