@@ -31,8 +31,9 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 ## DCP doc creation event (implemented)
 - find all constructors that accept doc type as argument
 - create all beans where created doc would be the only argument
+- link created beans under the original bean
 - Repeat until all beans created or unable to create any beans:
-  - using previously created beans as arguments, create more beans
+  - find all constructors that accept paths terminating at created beans
   - convert created beans to documents an store them on the cluster (which would trigger cascading doc creation events)
   - store links from argument beans to created from them beans
 
@@ -57,6 +58,13 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 - Handle the event by calling this parent bean methods with names that start with "unlinkChild" and accept the unlinked bean type
 - Propagate the event up the graph by calling `unlinkChild` methods that accept types matching types of the nodes from the unlinked node to the parent node.
 - Destruct all beans that are linked to the unlinked bean and any of its unlinked parents
+
+## Method matching
+Couchbeans matches methods and constructors on the graph path using their argument lists as path templates.
+A single method argument matches all paths to beans of the argument type with length equals to 1.
+Multiple arguments match paths literally, for example method with arguments `TypeA` and `TypeB` will match all paths with length 2 that first go through a `TypeA` bean and then end at a `TypeB` bean.
+`Object` arguments can be used to match paths through beans of any type.
+Array arguments can be used to match paths that go through several beans of the same type, i.g.: `(Folder[] path, File file)`; thus, `Object[]` parameters will match any paths of any length.
 
 ## Long-running tasks
 Applications should perform long-running tasks asynchronously. 
