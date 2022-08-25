@@ -44,11 +44,11 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 - Propagate the event up the graph by calling `linkChild` methods that accept types matching types of the nodes from the linked node to the parent node.
 - Construct all beans that can be constructed from new graph paths terminating with created link
 
-## Bean unlink event
+## Bean unlink event (implemented)
 - Call methods that start with "unlinkFrom" and accept the parent bean type
 - Handle the event by calling this parent bean methods with names that start with "unlinkChild" and accept the unlinked bean type
 - Propagate the event up the graph by calling `unlinkChild` methods that accept types matching types of the nodes from the unlinked node to the parent node.
-- Destruct all beans that are linked to the unlinked bean and any of its unlinked parents
+- Destruct unlinked bean if it has no parents left
 
 ## Method matching
 Couchbeans matches methods and constructors against graph paths using method argument lists as path templates.
