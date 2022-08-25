@@ -28,6 +28,13 @@ CBB_SCOPE="_default"
 Use `com.couchbeans.DcpListener` main class to launch a node. 
 Use same environment variables as with `com.couchbeans.BeanUploader` to configure couchbase connection.
 
+## Events
+### Event propagation
+Events are propagated on all paths that include event source bean.
+There is no guaranteed order in which paths are processed,
+ but inside every path events propagate from the topmost bean in the path.
+On event source 
+
 ## DCP doc mutation event (implemented)
 - if the bean is global, then get mutated bean and call any present setters for all changed fields 
 - in parent beans, find all methods with names starting with "update" and doc type as argument, then call them, storing parent and returned beans into mutation context
@@ -72,10 +79,13 @@ Internal nodes are nodes that run Couchbeans together with Couchbase data servic
 External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans.
 External nodes can be used to provide services outside of couchbase cluster, for example for load balncing or external system inegrations.
   
-### Foreign nodes
-Foreign nodes are applications that use Couchbeans as a library wihout starting DcpListener.
-These nodes can only query beans, process local beans, and create or edit cluster beans, but not process their changes as they do not listen to DCP events.
-Foreign nodes are intended to be used for:
+### Source nodes
+Source nodes are applications that use Couchbeans as a library wihout starting DcpListener.
+These nodes can only query beans, process local beans, and create or 
+edit cluster beans, but not process their changes as they do not listen 
+to DCP events.
+In other words, source nodes can only be sources of events and not consumers.
+Source nodes are intended to be used for:
 - Collecting data 
 - Graph editing
 
@@ -85,7 +95,7 @@ Beans marked with `@Global` annotation are processed differently:
 - singletons should be kept in memory at all times on all nodes.
 - Global beans are always present in all bean update/creation contexts.
 
-So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Singleton` and it will run on every node in the cluster that runs couchbeans.
+So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Global` and it will run on every node in the cluster that runs couchbeans.
 
 ### Local beans
 - All beans under `java` package
