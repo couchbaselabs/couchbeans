@@ -29,7 +29,7 @@ Use `com.couchbeans.DcpListener` main class to launch a node.
 Use same environment variables as with `com.couchbeans.BeanUploader` to configure couchbase connection.
 
 ## Events
-### Event propagation
+### Event propagation (implemented)
 Events are propagated on all paths that include event source bean.
 There is no guaranteed order in which paths are processed,
  but inside every path events propagate from the topmost bean in the path.
@@ -57,7 +57,7 @@ On event source
 - Propagate the event up the graph by calling `unlinkChild` methods that accept types matching types of the nodes from the unlinked node to the parent node.
 - Destruct unlinked bean if it has no parents left
 
-## Method matching
+## Method matching (implemented)
 Couchbeans matches methods and constructors against graph paths using method argument lists as path templates.
 A single method argument matches all paths to beans of the argument type with length equals to 1.
 Multiple arguments match paths literally, for example method with arguments `TypeA` and `TypeB` will match all paths with length 2 that first go through a `TypeA` bean and then end at a `TypeB` bean.
@@ -114,4 +114,5 @@ External beans are global and processed only on external nodes.
 
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
+#### Setter instrumentation (implemented)
 To avoid running setter logic on foreign beans, all bean setters are instrumented so that they just set the field value without running actual method code.
