@@ -115,4 +115,4 @@ External beans are global and processed only on external nodes.
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
 #### Setter instrumentation (implemented)
-To avoid running setter logic on foreign beans, all bean setters are instrumented so that they just set the field value without running actual method code.
+To avoid running setter logic on foreign beans, all bean setters are instrumented so that, when invoked on a foreign bean, they just set the field value without running actual method code (the code will be executed later on the owning node).
