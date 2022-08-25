@@ -79,7 +79,6 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         String className = cinfo.name();
 
         Class targetClass;
-        Object bean;
 
         LOGGER.info("DCP Mutation message.\n\tCollection: {};\n\tKey: {};\n\tContent:{}\n\tMessage: {}",
                 cinfo.name(),
@@ -89,25 +88,32 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
         if (className.equals("_default")) {
             if (isJson(event)) {
-                targetClass = JsonObject.class;
-                bean = Couchbeans.SERIALIZER.deserialize(targetClass, MessageUtil.getContentAsByteArray(event));
+                targetClass = Object.class;
             } else {
-                targetClass = byte[].class;
-                bean = MessageUtil.getContentAsByteArray(event);
+                return;
             }
         } else {
             try {
                 targetClass = Class.forName(className);
-                bean = Couchbeans.SERIALIZER.deserialize(targetClass, MessageUtil.getContentAsByteArray(event));
             } catch (ClassNotFoundException e) {
                 LOGGER.error("Failed to load class " + className, e);
                 return;
             }
         }
 
-        Couchbeans.KEY.put(bean, ckey.key());
-        Couchbeans.OWNED.put(bean, null);
-        MutationTreeWalker.processBeanUpdate(bean, MessageUtil.getContentAsString(event));
+        try {
+            Utils.getBeanInfo(targetClass.getCanonicalName(), ckey.key()).ifPresentOrElse(
+                    info -> MutationTreeWalker.processBeanUpdate(info, MessageUtil.getContentAsString(event)),
+                    () -> {
+                        BeanInfo info = MutationTreeWalker.registerBean(targetClass, ckey.key(), MessageUtil.getContentAsString(event));
+                        if (BeanLink.class.isAssignableFrom(targetClass)) {
+                            MutationTreeWalker.processNewBeanLink((BeanLink) info.bean());
+                        }
+                    }
+            );
+        } catch (Exception e) {
+            LOGGER.error("Failed to process message", e);
+        }
     }
 
     public static Stream<Object> processBean(Object bean) {

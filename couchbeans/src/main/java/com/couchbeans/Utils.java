@@ -7,22 +7,28 @@ import com.couchbeans.annotations.External;
 import com.couchbeans.annotations.Global;
 import com.couchbeans.annotations.Local;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Utils {
     public static String collectionName(Class from) {
-        return from.getCanonicalName()
-                .replaceAll("\\.", "-");
+        return from.getCanonicalName();
     }
 
     public static Class collectionClass(String collectionName) throws ClassNotFoundException {
@@ -97,7 +103,7 @@ public class Utils {
         ).rowsAs(BeanLink.class);
     }
 
-    public static List<BeanLink> parents(Object source) {
+    public static <S> List<BeanLink> parents(S source) {
         return Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2",
                         collectionRef(collectionName(source.getClass()))
@@ -109,7 +115,7 @@ public class Utils {
         ).rowsAs(BeanLink.class);
     }
 
-    public static List<BeanLink> parents(Object source, Class type) {
+    public static <S, T> List<BeanLink<S, T>> parents(S source, Class<T> type) {
         return Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2 AND sourceType = $3",
                         collectionRef(collectionName(source.getClass()))
@@ -119,32 +125,32 @@ public class Utils {
                         Couchbeans.key(source),
                         type.getCanonicalName()
                 ))
-        ).rowsAs(BeanLink.class);
+        ).rowsAs((Class<BeanLink<S, T>>) (Class<?>) BeanLink.class);
     }
 
-    public static List<BeanLink> children(Object source, Class target) {
 
-        String sourceKey = Couchbeans.KEY.get(source);
-        if (sourceKey == null) {
-            throw new IllegalArgumentException("Unknown bean: " + source);
-        }
-
-        return Couchbeans.SCOPE.query(
+    public static <S, T> List<BeanLink<S, T>> children(Class<S> beanType, String sourceKey, Class<T> target) {
+        Class<BeanLink<S, T>> linkType = (Class<BeanLink<S, T>>) (Class<?>) BeanLink.class;
+        return (List<BeanLink<S, T>>) Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3",
-                        collectionRef(collectionName(source.getClass()))
+                        collectionRef(collectionName(BeanLink.class))
                 ),
                 QueryOptions.queryOptions().parameters(JsonArray.from(
-                        source.getClass().getCanonicalName(),
+                        beanType.getCanonicalName(),
                         sourceKey,
                         target.getCanonicalName()
                 ))
-        ).rowsAs(BeanLink.class);
+        ).rowsAs(linkType);
+    }
+
+    public static <S, T> List<BeanLink<S, T>> children(S source, Class<T> target) {
+        return children((Class<S>)source.getClass(), Couchbeans.key(source), target);
     }
 
     public static List<BeanMethod> findConsumers(String beanType, String name, JsonArray arguments, JsonArray except) {
         return Optional.ofNullable(
                         Couchbeans.SCOPE.query(
-                                String.format("SELECT * FROM %s WHERE `beanType` LIKE $1 `name` LIKE $2 AND EVERY v IN `arguments` SATISFIES v IN $3 END AND META().id NOT IN $4", collectionRef(collectionName(BeanMethod.class))),
+                                String.format("SELECT * FROM %s WHERE `beanType` LIKE $1 AND `name` LIKE $2 AND EVERY v IN `arguments` SATISFIES v IN $3 END AND META().id NOT IN $4", collectionRef(collectionName(BeanMethod.class))),
                                 QueryOptions.queryOptions().parameters(JsonArray.from(
                                         beanType, name, arguments, except
                                 ))
@@ -153,7 +159,87 @@ public class Utils {
                 .orElseGet(Collections::emptyList);
     }
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    public static Stream<BeanMethod.Arguments> matchMethods(Class source, String methodNamePattern, Object[] path) {
+        return Couchbeans.SCOPE.query(
+                        String.format("SELECT * FROM %s WHERE `beanType` LIKE $1 AND `name` LIKE $2", collectionRef(collectionName(BeanMethod.class))),
+                        QueryOptions.queryOptions().parameters(JsonArray.from(
+                                source.getCanonicalName(),
+                                methodNamePattern
+                        ))
+                ).rowsAs(BeanMethod.class).stream()
+                .map(method -> {
+                    List<Object> arguments = matchMethod(method, path);
+                    if (arguments != null) {
+                        return method.new Arguments(arguments);
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull);
+    }
+
+    public static Stream<BeanMethod.Arguments> matchConstructors(Object[] path) {
+        return matchConstructors(path, new String[0]);
+    }
+
+    public static Stream<BeanMethod.Arguments> matchConstructors(Object[] path, String[] exclude) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE `name` = '<init>' AND META().id NOT IN $1", collectionRef(collectionName(BeanMethod.class))),
+                QueryOptions.queryOptions().parameters(JsonArray.from(exclude))
+        ).rowsAs(BeanMethod.class).stream()
+                .map(constructor -> {
+                    List<Object> arguments = matchMethod(constructor, path);
+                    if (arguments != null) {
+                        return constructor.new Arguments(arguments);
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull);
+    }
+
+    public static boolean matchTypes(Class t1, Class t2) {
+        return  t1.isAssignableFrom(t2) || (
+                t1.isArray() && t1.componentType().isAssignableFrom(t2)
+        );
+    }
+
+    public static List<Object> matchMethod(BeanMethod method, Object[] path) {
+        AtomicReference<Class> lastArgumentType = new AtomicReference<>();
+        List<String> argumentTypes = method.arguments();
+        List<Object> arguments = new ArrayList<>();
+        boolean matches = Arrays.stream(path)
+                .map(pathBean -> {
+                    if (argumentTypes.size() == 0) {
+                        return false;
+                    }
+                    Class pattern = null;
+                    try {
+                        pattern = Class.forName(argumentTypes.remove(0));
+                    } catch (ClassNotFoundException e) {
+                        BeanException.report(method, e);
+                        return false;
+                    }
+                    Class beanType = pathBean.getClass();
+
+                    if (matchTypes(pattern, beanType)) {
+                        if (pattern.isArray()) {
+                            lastArgumentType.set(pattern);
+                        } else {
+                            lastArgumentType.set(null);
+                        }
+                        return true;
+                    } else {
+                        return lastArgumentType.get() != null &&
+                                lastArgumentType.get().isArray() && matchTypes(lastArgumentType.get(), beanType);
+                    }
+                }).allMatch(Boolean.TRUE::equals);
+
+        if (matches) {
+            return arguments;
+        }
+        return null;
+    }
+
+    protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static <T> Optional<T> fetchObject(Class<T> type, String key) {
         return Optional.ofNullable(Couchbeans.SCOPE.collection(collectionName(type)))
@@ -190,14 +276,14 @@ public class Utils {
         return false;
     }
 
-    public static Optional<BeanLink> linkBetween(Object source, Object target) {
+    public static <S, T> Optional<BeanLink<S, T>> linkBetween(S source, T target) {
         return Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3 AND targetKey = $4", collectionRef(collectionName(BeanLink.class))),
                 QueryOptions.queryOptions().parameters(JsonArray.from(
                         source.getClass().getCanonicalName(), Couchbeans.key(source),
                         target.getClass().getCanonicalName(), Couchbeans.key(target)
                 ))
-        ).rowsAs(BeanLink.class).stream().findFirst();
+        ).rowsAs((Class<BeanLink<S, T>>)((Class<?>)BeanLink.class)).stream().findFirst();
     }
 
     public static BeanType beanType(Object bean) {
@@ -212,5 +298,44 @@ public class Utils {
             return BeanType.INTERNAL;
         }
         return BeanType.NORMAL;
+    }
+
+    public static Optional<Method> getSetter(Class type, String key) {
+        try {
+            Field field = type.getField(key);
+            Class fieldType = field.getType();
+            try {
+                return Optional.of(type.getMethod(key, fieldType));
+            } catch (NoSuchMethodException e) {
+                try {
+                    return Optional.of(
+                            type.getMethod(
+                                    "set" + key.substring(0, 1).toUpperCase(Locale.ROOT) +
+                                            ((key.length() > 1) ? key.substring(1) : ""),
+                                    fieldType
+                            ));
+                } catch (NoSuchMethodException ex) {
+                    return Optional.empty();
+                }
+            }
+        } catch (NoSuchFieldException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<BeanInfo> getBeanInfo(String beanType, String beanKey) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE `beanType` = $1 AND `beanKey` = $2 LIMIT 1", collectionRef(collectionName(BeanInfo.class))),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        beanType, beanKey
+                ))
+        ).rowsAs(BeanInfo.class).stream().findFirst();
+    }
+
+    public static boolean hasParents(String type, String key) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT 1 FROM %s WHERE `targetType` = $1 AND `targetKey` = $2 LIMIT 1", collectionRef(collectionName(BeanLink.class))),
+                QueryOptions.queryOptions().parameters(JsonArray.from(type, key))
+        ).rowsAsObject().stream().findAny().isPresent();
     }
 }

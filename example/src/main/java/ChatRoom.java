@@ -6,12 +6,12 @@ public class ChatRoom {
     private String name;
     private List<String> usernames;
 
-    public Message linkFrom(User user) {
+    public Message linkChild(User user) {
         usernames.add(user.username());
         return new Message(String.format("User _%s_ enters the room.", user.username()));
     }
 
-    public Message unlinkFrom(User user) {
+    public Message unlinkChild(User user) {
         usernames.remove(user.username());
         return new Message(String.format("User _%s_ left the room.", user.username()));
     }

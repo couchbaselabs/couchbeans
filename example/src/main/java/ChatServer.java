@@ -19,9 +19,6 @@ public class ChatServer {
     private List<String> roomNames;
     private final transient Map<String, Collection<WebSocket>> sockets = new HashMap<>();
 
-    public ChatServer() {
-    }
-
     /**
      * This will be called only on external nodes
      * On all other nodes this method will be replaced
@@ -44,7 +41,7 @@ public class ChatServer {
      * On all other nodes will create a link that points from this bean to the room
      * @param room
      */
-    public void linkFrom(ChatRoom room) {
+    public void linkChild(ChatRoom room) {
         roomNames.add(room.name());
     }
 
@@ -52,7 +49,7 @@ public class ChatServer {
      * Called on external nodes when a link from ChatServer to ChatRoom is removed from the graph
      * @param room
      */
-    public void unlinkFrom(ChatRoom room) {
+    public void unlinkChild(ChatRoom room) {
         roomNames.remove(room);
     }
 
@@ -62,7 +59,15 @@ public class ChatServer {
      * @param room
      * @param message
      */
-    public void linkFrom(ChatRoom room, Message message) {
-        Couchbeans.allParents(message, User.class);
+    public void linkChild(ChatRoom room, Message message) {
+        // send this message to all users in the room
+    }
+
+    public void linkChild(ChatRoom room, User user) {
+        // send this user to all other users in the room
+    }
+
+    public void unlinkChild(ChatRoom room, User user) {
+        // send this deletion to all users in the room
     }
 }

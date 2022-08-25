@@ -158,17 +158,13 @@ public class BeanUploader {
                         BeanMethod method = new BeanMethod(mi.getDeclaringClass().getName(), mi.getName(), arguments);
                         System.out.println("Upserting bean method " + mi.getSignature() + ": " + method.toJsonObject().toString());
                         metaCollection.upsert(method.getHash(), method.toJsonObject());
+                        instrumentMethod(mi);
                     }
                 });
     }
 
-    private static List<String> getMethodArguments(CtMethod info) {
-        try {
-            return Arrays.stream(Descriptor.getParameterTypes(info.getSignature(), ClassPool.getDefault()))
-                    .map(ctClass -> ctClass.getName()).collect(Collectors.toList());
-        } catch (NotFoundException e) {
-            return Collections.EMPTY_LIST;
-        }
+    private static void instrumentMethod(CtMethod mi) {
+        mi.insertBefore("if (");
     }
 
     private static List<String> getMethodArguments(String signature) {
@@ -254,96 +250,5 @@ public class BeanUploader {
         }
 
         return type;
-    }
-
-    private static List<String> getMethodArguments(MethodInfo info) {
-        ConstPool cpool = info.getConstPool();
-        LocalVariableAttribute table = (LocalVariableAttribute) info.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
-        MethodParametersAttribute params = (MethodParametersAttribute) info.getAttribute(MethodParametersAttribute.tag);
-        if (params == null) {
-            CodeAttribute ca = info.getCodeAttribute();
-            if (ca != null) {
-                System.out.println("Getting params attribute for method '" + info + "' using CodeAttribute");
-                params = (MethodParametersAttribute) ca.getAttribute(MethodParametersAttribute.tag);
-            }
-        }
-
-        if (table != null && params != null) {
-            int[] paramNames = IntStream.range(0, params.size()).map(params::name).toArray();
-            return IntStream.range(0, table.tableLength())
-                    .filter(i -> Arrays.binarySearch(paramNames, table.nameIndex(i)) > -1)
-                    .boxed()
-                    .map(table::descriptor)
-                    .collect(Collectors.toList());
-        }
-        System.out.println("Did not find arguments for method " + info.toString());
-        System.out.println("Table: " + Objects.toString(table));
-        System.out.println("Params: " + Objects.toString(params));
-        return Collections.EMPTY_LIST;
-    }
-
-    private static void processAtributeInfo(AttributeInfo ai, JsonArray target) {
-        if (ai instanceof AnnotationsAttribute) {
-            Arrays.stream(((AnnotationsAttribute) ai).getAnnotations())
-                    .map(BeanUploader::processAnnotation)
-                    .forEach(target::add);
-        } else if (ai instanceof AnnotationDefaultAttribute) {
-            JsonObject ann = JsonObject.create();
-            ann.put("name", ai.getName());
-            target.add(ann);
-        }
-    }
-
-    private static JsonObject processAnnotation(Annotation annotation) {
-        JsonObject result = JsonObject.create();
-        result.put("__class", annotation.getTypeName());
-        Set<String> memberNames = annotation.getMemberNames();
-        if (memberNames != null) {
-            memberNames.stream()
-                    .forEach(name -> {
-                        Object value = processValue(annotation.getMemberValue(name));
-                        result.put(name, value);
-                    });
-        }
-        return result;
-    }
-
-    private static Object processValue(MemberValue value) {
-        if (value instanceof AnnotationMemberValue) {
-            return processAnnotation(((AnnotationMemberValue) value).getValue());
-        } else if (value instanceof ArrayMemberValue) {
-            return JsonArray.from(
-                    Arrays.stream(((ArrayMemberValue) value).getValue())
-                            .map(BeanUploader::processValue)
-                            .collect(Collectors.toList()));
-        } else if (value instanceof BooleanMemberValue) {
-            return ((BooleanMemberValue) value).getValue();
-        } else if (value instanceof ByteMemberValue) {
-            return ((ByteMemberValue) value).getValue();
-        } else if (value instanceof CharMemberValue) {
-            return ((CharMemberValue) value).getValue();
-        } else if (value instanceof ClassMemberValue) {
-            return ((ClassMemberValue) value).getValue();
-        } else if (value instanceof DoubleMemberValue) {
-            return ((DoubleMemberValue) value).getValue();
-        } else if (value instanceof EnumMemberValue) {
-            return ((EnumMemberValue) value).getValue();
-        } else if (value instanceof FloatMemberValue) {
-            return ((FloatMemberValue) value).getValue();
-        } else if (value instanceof IntegerMemberValue) {
-            return ((IntegerMemberValue) value).getValue();
-        } else if (value instanceof LongMemberValue) {
-            return ((LongMemberValue) value).getValue();
-        } else if (value instanceof ShortMemberValue) {
-            return ((ShortMemberValue) value).getValue();
-        } else if (value instanceof StringMemberValue) {
-            return ((StringMemberValue) value).getValue();
-        } else {
-            throw new IllegalArgumentException("Unknown annotation value type: " + value.getClass().getCanonicalName());
-        }
-    }
-
-    private static void validateArguments(String[] args) {
-
     }
 }

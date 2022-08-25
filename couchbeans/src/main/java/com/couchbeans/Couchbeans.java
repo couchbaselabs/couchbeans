@@ -6,13 +6,10 @@ import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.codec.JsonSerializer;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -38,22 +35,22 @@ public class Couchbeans {
     protected static final Map<Object, String> KEY = Collections.synchronizedMap(new WeakHashMap<>());
 
     static {
-       CLUSTER = Cluster.connect(
-               CBB_CLUSTER,
-               CBB_USERNAME,
-               CBB_PASSWORD
-       );
-       BUCKET = CLUSTER.bucket(CBB_BUCKET);
-       SCOPE = BUCKET.scope(CBB_SCOPE);
-       EVENT_BUS = CLUSTER.environment().eventBus();
-       SERIALIZER = SCOPE.environment().jsonSerializer();
+        CLUSTER = Cluster.connect(
+                CBB_CLUSTER,
+                CBB_USERNAME,
+                CBB_PASSWORD
+        );
+        BUCKET = CLUSTER.bucket(CBB_BUCKET);
+        SCOPE = BUCKET.scope(CBB_SCOPE);
+        EVENT_BUS = CLUSTER.environment().eventBus();
+        SERIALIZER = SCOPE.environment().jsonSerializer();
     }
 
     public static <T> Optional<T> get(Class<T> type, String id) {
         return Utils.fetchObject(type, id);
     }
 
-    public static <T> Optional<T> firstLinked(Object bean, Class<T> type) {
+    public static <T> Optional<T> firstChild(Object bean, Class<T> type) {
         return Utils.children(bean, type)
                 .stream()
                 .map(BeanLink::target)
@@ -94,9 +91,9 @@ public class Couchbeans {
         });
     }
 
-    public static CompletableFuture<BeanLink> link(Object source, Object target) {
+    public static <S, T> CompletableFuture<BeanLink<S, T>> link(S source, T target) {
         return CompletableFuture.supplyAsync(() -> Utils.linkBetween(source, target).orElseGet(() -> {
-            BeanLink result = new BeanLink(source, target);
+            BeanLink<S, T> result = new BeanLink<S, T>(source, target);
             store(result).join();
             return result;
         }));
@@ -108,5 +105,12 @@ public class Couchbeans {
 
     public static boolean owned(Object bean) {
         return OWNED.containsKey(bean);
+    }
+
+    public static <T> Optional<T> firstChild(Class<?> beanType, String key, Class<T> targetType) {
+        return Utils.children(beanType, key, targetType)
+                    .stream()
+                    .findFirst()
+                    .map(l -> (T) l.target());
     }
 }

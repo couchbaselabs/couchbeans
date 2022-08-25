@@ -111,33 +111,38 @@ public class BeanMethod {
         return Utils.findConsumers(owningType, name, args, ex);
     }
 
+    public List<Object> apply(Object target, List<Object> args) {
+        try {
+            Class[] arguments = args.stream().map(Object::getClass).toArray(Class[]::new);
+            Class methodClass = Class.forName(beanType);
+            if (methodClass.isAssignableFrom(target.getClass())) {
+                throw new IllegalArgumentException("Method that belongs to type '" + beanType + "' cannot be invoked on bean of type '" + target.getClass().getCanonicalName() + "'");
+            }
+            Method method = target.getClass().getMethod(name, arguments);
+            Object result = method.invoke(target, args);
+            List cResult;
+            if (result instanceof Collection) {
+                cResult = new ArrayList((Collection) result);
+            } else {
+                cResult = Arrays.asList(result);
+            }
+
+            cResult.forEach(b -> {
+                Couchbeans.store(b);
+                Couchbeans.link(target, b);
+                args.stream().forEach(a -> Couchbeans.link(a, b));
+            });
+            return cResult;
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public List<Object> apply(Object target, BeanContext ctx) {
         try {
-            Class methodClass = Class.forName(beanType);
-            return invoke(ctx, args -> {
-                try {
-                    Class[] arguments = args.stream().map(Object::getClass).toArray(Class[]::new);
-                    Method method = methodClass.getMethod(name, arguments);
-                    Object result = method.invoke(target, args);
-                    List cResult;
-                    if (result instanceof Collection) {
-                        cResult = new ArrayList((Collection) result);
-                    } else {
-                        cResult = Arrays.asList(result);
-                    }
-
-                    cResult.forEach(b -> {
-                        Couchbeans.store(b);
-                        Couchbeans.link(target, b);
-                        args.stream().forEach(a -> Couchbeans.link(a, b));
-                    });
-                    return cResult;
-                } catch (RuntimeException re) {
-                    throw re;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            return invoke(ctx, args -> apply(target, args));
         } catch (Exception e) {
             BeanException exception = new BeanException(e);
             Couchbeans.store(exception);
@@ -182,5 +187,26 @@ public class BeanMethod {
                 .map(invoker)
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
+    }
+
+
+    public class Arguments {
+        private List<Object> arguments;
+
+        public Arguments(List<Object> arguments) {
+            this.arguments = arguments;
+        }
+
+        public List<Object> arguments() {
+            return arguments;
+        }
+
+        public BeanMethod method() {
+            return BeanMethod.this;
+        }
+
+        public List<Object> apply(Object target) {
+            return BeanMethod.this.apply(target, arguments);
+        }
     }
 }

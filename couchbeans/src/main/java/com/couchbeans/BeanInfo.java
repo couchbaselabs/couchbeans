@@ -1,9 +1,13 @@
 package com.couchbeans;
 
+import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonProcessingException;
 import com.couchbase.client.java.json.JsonObject;
 import com.google.common.collect.Streams;
 import org.apache.tools.ant.util.StreamUtils;
+import org.codehaus.groovy.ast.tools.BeanUtils;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,6 +21,8 @@ import java.util.stream.Collectors;
 
 public class BeanInfo {
     private long revision;
+    private String beanKey;
+    private String beanType;
     private Set<String> parentBeans;
     private String lastAppliedSource;
 
@@ -24,7 +30,9 @@ public class BeanInfo {
 
     }
 
-    protected BeanInfo(Object bean) {
+    protected BeanInfo(String beanType, String beanKey, String source) {
+        this.beanType = beanType;
+        this.beanKey = beanKey;
         this.revision = 0;
     }
 
@@ -50,5 +58,58 @@ public class BeanInfo {
                 .distinct()
                 .filter(key -> !Objects.equals(oldJson.get(key), newJson.get(key)))
                 .collect(Collectors.toList());
+    }
+
+    public Class beanType() {
+        try {
+            return Class.forName(beanType);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Object bean() {
+        try {
+            Object bean = Utils.MAPPER.readValue(lastAppliedSource, beanType());
+            Couchbeans.KEY.put(bean, beanKey);
+            return bean;
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    public Object update(String source) throws JsonProcessingException {
+        Class type = beanType();
+        if (revision == 0 || lastAppliedSource.equals(source)) {
+            lastAppliedSource = source;
+            return Utils.MAPPER.readValue(source, type);
+        } else {
+            Map<String, Object> oldValues = JsonObject.fromJson(lastAppliedSource).toMap();
+            Map<String, Object> newValues = JsonObject.fromJson(source).toMap();
+            Object clone = Utils.MAPPER.readValue(source, type);
+            Object result = Utils.MAPPER.readValue(lastAppliedSource, type);
+            Streams.concat(oldValues.keySet().stream(), newValues.keySet().stream())
+                    .distinct()
+                    .filter(key ->
+                            newValues.containsKey(key) != oldValues.containsKey(key) ||
+                            !Objects.equals(newValues.get(key), oldValues.get(key))
+                    )
+                    .forEach(key -> {
+                        Utils.getSetter(type, key).ifPresent(setter -> {
+                            try {
+                                Field f = type.getField(key);
+                                setter.invoke(result, f.get(clone));
+                            } catch (NoSuchFieldException e) {
+                                throw new RuntimeException(e);
+                            } catch (InvocationTargetException e) {
+                                throw new RuntimeException(e);
+                            } catch (IllegalAccessException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+                    });
+            Couchbeans.KEY.put(result, beanKey);
+            return result;
+        }
     }
 }

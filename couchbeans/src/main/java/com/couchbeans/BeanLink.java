@@ -3,17 +3,20 @@ package com.couchbeans;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.Optional;
 
-public class BeanLink {
+public class BeanLink<S, T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(BeanLink.class);
-    private final String sourceType;
-    private final String sourceKey;
-    private final String targetType;
-    private final String targetKey;
+    private String sourceType;
+    private String sourceKey;
+    private String targetType;
+    private String targetKey;
 
-    public BeanLink(Object source, Object target) {
+    public BeanLink() {
+
+    }
+
+    public BeanLink(S source, T target) {
         this.sourceType = source.getClass().getCanonicalName();
         this.sourceKey = Couchbeans.key(source);
         this.targetType = target.getClass().getCanonicalName();
@@ -36,9 +39,9 @@ public class BeanLink {
         return targetKey;
     }
 
-    public Optional<?> target() {
+    public Optional<T> target() {
         try {
-            return Couchbeans.get(Class.forName(targetType), targetKey);
+            return Couchbeans.get((Class<T>) Class.forName(targetType), targetKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + targetKey + "' of type '" + targetType + "'", e);
             BeanException.report(this, e);
@@ -46,9 +49,9 @@ public class BeanLink {
         }
     }
 
-    public Optional<?> source() {
+    public Optional<S> source() {
         try {
-            return Couchbeans.get(Class.forName(sourceType), sourceKey);
+            return Couchbeans.get((Class<S>)Class.forName(sourceType), sourceKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + sourceKey + "' of type '" + sourceType + "'", e);
             BeanException.report(this, e);
