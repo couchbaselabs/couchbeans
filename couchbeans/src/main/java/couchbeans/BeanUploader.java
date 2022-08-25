@@ -1,10 +1,8 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.codec.RawBinaryTranscoder;
-import com.couchbase.client.java.codec.Transcoder;
 import com.couchbase.client.java.kv.UpsertOptions;
-import com.couchbase.client.java.query.QueryOptions;
 import javassist.CannotCompileException;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
@@ -14,7 +12,6 @@ import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 import javassist.bytecode.LocalVariableAttribute;
 import javassist.bytecode.MethodInfo;
-import org.gradle.internal.impldep.org.bouncycastle.openpgp.PGPSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -44,6 +42,10 @@ public class BeanUploader {
     private static int binaryDocument;
 
     public static void main(String[] args) {
+        run(args);
+    }
+
+    public static void run(String[] args) {
         classCollection = Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME);
         metaCollection = Couchbeans.SCOPE.collection(App.METHOD_COLLECTION_NAME);
 
@@ -75,62 +77,82 @@ public class BeanUploader {
         cp.insertClassPath(new ClassClassPath(BeanUploader.class));
         Arrays.stream(sources)
                 .map(Path::of)
-                .forEach(path -> processPath(cp, path));
+                .flatMap(path -> processPath(cp, path).stream())
+                .forEach(ci -> {
+                    try {
+                        Class type = cp.get(ci.className()).toClass(BeanUploader.class.getClassLoader(), null);
+                        if (ci.beanType().isAutoCreated()) {
+                                Object bean = Class.forName(ci.className(), true, CouchbaseClassLoader.INSTANCE).getConstructor().newInstance();
+                                System.out.println("Creating singleton for bean " + ci.className());
+                                Singleton singleton = new Singleton(bean);
+                                String key = Couchbeans.store(singleton);
+                                System.out.println(String.format("Auto-created %s singleton of type %s", key, ci.className()));
+                        } else if (ci.beanType() != BeanType.LOCAL) {
+                            Utils.ensureCollectionExists(type);
+                        }
+                    } catch (Exception e) {
+                        RuntimeException re = new RuntimeException("Failed to initialize", e);
+                        BeanException.report(ci, re);
+                        re.printStackTrace();
+                    }
+                });
     }
 
-    private static void processPath(ClassPool cp, Path path) {
+    private static List<ClassInfo> processPath(ClassPool cp, Path path) {
         try {
             System.out.println("Processing path: " + path.toString() + " (is jar: " + path.toString().endsWith(".jar") + ")");
             if (path.toFile().isDirectory()) {
-                processDirectory(cp, path);
+                return processDirectory(cp, path);
             } else if (path.toString().endsWith(".jar")) {
-                processJar(cp, path);
+                return processJar(cp, path);
             } else {
-                processFile(cp, path);
+                return Arrays.asList(processFile(cp, path));
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void processJar(ClassPool cp, Path path) throws Exception {
-        processZipStream(cp, new FileInputStream(path.toFile()));
+    private static List<ClassInfo> processJar(ClassPool cp, Path path) throws Exception {
+        return processZipStream(cp, new FileInputStream(path.toFile()));
     }
 
-    private static void processZipStream(ClassPool cp, InputStream is) throws Exception {
+    private static List<ClassInfo> processZipStream(ClassPool cp, InputStream is) throws Exception {
         ZipInputStream zis = new ZipInputStream(is);
         ZipEntry entry;
+        List<ClassInfo> result = new ArrayList<>();
         while ((entry = zis.getNextEntry()) != null) {
             if (!entry.isDirectory()) {
                 if (entry.getName().endsWith(".class")) {
-                    processClass(cp, zis);
+                    result.add(processClass(cp, zis));
                 } else if (entry.getName().endsWith(".jar")) {
                     processZipStream(cp, zis);
                 }
             }
             zis.closeEntry();
         }
+        return result;
     }
 
-    private static void processDirectory(ClassPool cp, Path directory) throws IOException {
+    private static List<ClassInfo> processDirectory(ClassPool cp, Path directory) throws IOException {
         try (Stream<Path> files = Files.walk(directory)) {
-            files
-                    .filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
-                    .forEach(path -> processPath(cp, path));
+            return files.filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
+                    .flatMap(path -> processPath(cp, path).stream())
+                    .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to process directory '" + directory.toString() + "'", e);
         }
     }
 
-    private static void processFile(ClassPool cp, Path path) throws Exception {
+    private static ClassInfo processFile(ClassPool cp, Path path) throws Exception {
         try {
-            processClass(cp, new FileInputStream(path.toFile()));
+            return processClass(cp, new FileInputStream(path.toFile()));
         } catch (Exception e) {
             throw new RuntimeException("Failed to process file '" + path.toString() + "'", e);
         }
     }
 
-    private static void processClass(ClassPool cp, InputStream source) throws Exception {
+    private static ClassInfo processClass(ClassPool cp, InputStream source) throws Exception {
         BufferedInputStream bin = new BufferedInputStream(source);
         CtClass ctClass = cp.makeClass(bin);
         String name = ctClass.getName();
@@ -157,7 +179,12 @@ public class BeanUploader {
 
         Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME)
             .upsert(name, ctClass.toBytecode(), UpsertOptions.upsertOptions().transcoder(RawBinaryTranscoder.INSTANCE));
-        Couchbeans.store(new ClassInfo(ctClass)).join();
+        ClassInfo ci = new ClassInfo(ctClass);
+        Couchbeans.store(ci);
+
+        Class.forName(ci.className(), false, CouchbaseClassLoader.INSTANCE);
+
+        return ci;
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, Object value) {
@@ -191,7 +218,7 @@ public class BeanUploader {
         LocalVariableAttribute vartable = (LocalVariableAttribute) mi.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
 
         try {
-            c.append("if (com.couchbeans.BeanUploader.").append(interceptorMethodName).append("(this");
+            c.append("if (couchbeans.BeanUploader.").append(interceptorMethodName).append("(this");
             if (argBuilder != null) {
                 argBuilder.accept(c.append(", "));
             }

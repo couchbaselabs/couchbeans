@@ -1,4 +1,4 @@
-package com.couchbeans.annotations;
+package couchbeans.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,6 +7,7 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface Local {
+public @interface External {
     String[] tags() default "";
+    boolean fallbackToGlobal() default true;
 }

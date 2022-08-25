@@ -1,9 +1,6 @@
-package com.couchbeans;
+package couchbeans;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-
-import java.io.PrintStream;
-import java.io.StringWriter;
 
 public class BeanException {
     private String message;

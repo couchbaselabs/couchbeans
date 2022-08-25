@@ -1,6 +1,7 @@
-import com.couchbeans.BeanLink;
-import com.couchbeans.Couchbeans;
-import com.couchbeans.annotations.External;
+import couchbeans.BeanLink;
+import couchbeans.Couchbeans;
+import couchbeans.annotations.External;
+import couchbeans.annotations.External;
 
 import java.net.http.WebSocket;
 import java.util.Collection;

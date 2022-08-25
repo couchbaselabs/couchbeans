@@ -1,4 +1,4 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
@@ -7,7 +7,6 @@ import javassist.CtField;
 import javassist.CtMethod;
 import javassist.NotFoundException;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
@@ -19,7 +18,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -145,48 +143,6 @@ public class BeanMethod {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public List<Object> apply(Object target, BeanContext ctx) {
-        try {
-            return invoke(ctx, args -> apply(target, args));
-        } catch (Exception e) {
-            BeanException exception = new BeanException(e);
-            Couchbeans.store(exception);
-            Couchbeans.link(target, exception);
-            Couchbeans.link(this, exception);
-        }
-        return Collections.EMPTY_LIST;
-    }
-
-    public List<Object> construct(BeanContext ctx) {
-        try {
-            Class target = Class.forName(beanType);
-            return invoke(ctx, args -> {
-                try {
-                    Class[] arguments = args.stream().map(Object::getClass).toArray(Class[]::new);
-                    Object childBean = target.getConstructor(arguments).newInstance(args.toArray());
-                    Couchbeans.store(childBean).exceptionally(e -> {
-                        throw new RuntimeException("Failed to store child bean of type '" + target + "'", e);
-                    }).join();
-                    args.forEach(bean -> {
-                        Couchbeans.link(bean, childBean).exceptionally(e -> {
-                            throw new RuntimeException("Failed to link child bean '" + Couchbeans.ref(childBean) + "' to parent '" + Couchbeans.ref(bean) + "'");
-                        }).join();
-                    });
-                    return Arrays.asList(childBean);
-                } catch (RuntimeException re) {
-                    throw re;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        } catch (Exception e) {
-            BeanException exception = new BeanException(e);
-            Couchbeans.store(exception);
-            Couchbeans.link(this, exception);
-        }
-        return Collections.EMPTY_LIST;
     }
 
     public List<Object> invoke(BeanContext ctx, Function<List<Object>, List<Object>> invoker) {

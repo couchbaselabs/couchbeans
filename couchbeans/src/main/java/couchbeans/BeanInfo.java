@@ -1,19 +1,13 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.java.json.JsonObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.Streams;
-import org.apache.tools.ant.util.StreamUtils;
-import org.codehaus.groovy.ast.tools.BeanUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,9 +26,13 @@ public class BeanInfo {
     }
 
     protected BeanInfo(String beanType, String beanKey, String source) {
+        if (beanType.equals(BeanInfo.class.getCanonicalName())) {
+            throw new IllegalArgumentException("Cannot create BeanInfo for BeanInfo...");
+        }
         this.beanType = beanType;
         this.beanKey = beanKey;
         this.revision = 0;
+        this.lastAppliedSource = source;
     }
 
     public long revision() {

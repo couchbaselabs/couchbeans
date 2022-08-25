@@ -1,10 +1,10 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
-import com.couchbeans.annotations.External;
-import com.couchbeans.annotations.Global;
-import com.couchbeans.annotations.Local;
+import couchbeans.annotations.External;
+import couchbeans.annotations.Global;
+import couchbeans.annotations.Local;
 import javassist.CtClass;
 
 public class ClassInfo {
@@ -38,6 +38,18 @@ public class ClassInfo {
     }
 
     public String className() {
+        return className;
+    }
+
+    public void beanType(BeanType type) {
+        this.beanType = type;
+    }
+
+    public BeanType beanType() {
+        return beanType;
+    }
+
+    public String naturalKey() {
         return className;
     }
 

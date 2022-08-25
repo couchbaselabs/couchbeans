@@ -1,12 +1,20 @@
-package com.couchbeans;
+package couchbeans;
 
+import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
-import com.couchbeans.annotations.External;
-import com.couchbeans.annotations.Global;
-import com.couchbeans.annotations.Local;
+import couchbeans.annotations.External;
+import couchbeans.annotations.Global;
+import couchbeans.annotations.Index;
+import couchbeans.annotations.Local;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Streams;
+import javassist.CtClass;
+import javassist.CtField;
+import javassist.NotFoundException;
 
+import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -31,7 +39,7 @@ public class Utils {
     }
 
     public static Class collectionClass(String collectionName) throws ClassNotFoundException {
-        return Class.forName(collectionName.replaceAll("-", "."));
+        return Class.forName(collectionName.replaceAll("-", "."), true, CouchbaseClassLoader.INSTANCE);
     }
 
     public static String collectionRef(String collection) {
@@ -143,7 +151,7 @@ public class Utils {
     }
 
     public static <S, T> List<BeanLink<S, T>> children(S source, Class<T> target) {
-        return children((Class<S>)source.getClass(), Couchbeans.key(source), target);
+        return children((Class<S>) source.getClass(), Couchbeans.key(source), target);
     }
 
     public static List<BeanMethod> findConsumers(String beanType, String name, JsonArray arguments, JsonArray except) {
@@ -182,9 +190,9 @@ public class Utils {
 
     public static Stream<BeanMethod.Arguments> matchConstructors(Object[] path, String[] exclude) {
         return Couchbeans.SCOPE.query(
-                String.format("SELECT * FROM %s WHERE `name` = '<init>' AND META().id NOT IN $1", collectionRef(collectionName(BeanMethod.class))),
-                QueryOptions.queryOptions().parameters(JsonArray.from(exclude))
-        ).rowsAs(BeanMethod.class).stream()
+                        String.format("SELECT * FROM %s WHERE `name` = '<init>' AND META().id NOT IN $1", collectionRef(collectionName(BeanMethod.class))),
+                        QueryOptions.queryOptions().parameters(JsonArray.from(exclude))
+                ).rowsAs(BeanMethod.class).stream()
                 .map(constructor -> {
                     List<Object> arguments = matchMethod(constructor, path);
                     if (arguments != null) {
@@ -196,7 +204,7 @@ public class Utils {
     }
 
     public static boolean matchTypes(Class t1, Class t2) {
-        return  t1.isAssignableFrom(t2) || (
+        return t1.isAssignableFrom(t2) || (
                 t1.isArray() && t1.componentType().isAssignableFrom(t2)
         );
     }
@@ -282,7 +290,7 @@ public class Utils {
                         source.getClass().getCanonicalName(), Couchbeans.key(source),
                         target.getClass().getCanonicalName(), Couchbeans.key(target)
                 ))
-        ).rowsAs((Class<BeanLink<S, T>>)((Class<?>)BeanLink.class)).stream().findFirst();
+        ).rowsAs((Class<BeanLink<S, T>>) ((Class<?>) BeanLink.class)).stream().findFirst();
     }
 
     public static BeanType beanType(Object bean) {
@@ -323,12 +331,16 @@ public class Utils {
     }
 
     public static Optional<BeanInfo> getBeanInfo(String beanType, String beanKey) {
-        return Couchbeans.SCOPE.query(
-                String.format("SELECT * FROM %s WHERE `beanType` = $1 AND `beanKey` = $2 LIMIT 1", collectionRef(collectionName(BeanInfo.class))),
-                QueryOptions.queryOptions().parameters(JsonArray.from(
-                        beanType, beanKey
-                ))
-        ).rowsAs(BeanInfo.class).stream().findFirst();
+        try {
+            return Couchbeans.SCOPE.query(
+                    String.format("SELECT * FROM %s WHERE `beanType` = $1 AND `beanKey` = $2 LIMIT 1", collectionRef(collectionName(BeanInfo.class))),
+                    QueryOptions.queryOptions().parameters(JsonArray.from(
+                            beanType, beanKey
+                    ))
+            ).rowsAs(BeanInfo.class).stream().findFirst();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     public static boolean hasParents(String type, String key) {
@@ -336,5 +348,107 @@ public class Utils {
                 String.format("SELECT 1 FROM %s WHERE `targetType` = $1 AND `targetKey` = $2 LIMIT 1", collectionRef(collectionName(BeanLink.class))),
                 QueryOptions.queryOptions().parameters(JsonArray.from(type, key))
         ).rowsAsObject().stream().findAny().isPresent();
+    }
+
+    public static Collection ensureCollectionExists(Class<?> aClass) {
+        String name = collectionName(aClass);
+        String[] indexFields = getFields(aClass)
+                .filter(field -> field.isAnnotationPresent(Index.class))
+                .map(Field::getName)
+                .toArray(String[]::new);
+
+        createCollectionIfNotExists(name);
+        createPrimaryIndexIfNotExists(name);
+        if (indexFields.length > 0) {
+            createIndexIfNotExists(name, indexFields);
+        }
+        return Couchbeans.SCOPE.collection(name);
+    }
+
+    private static Stream<Field> getFields(Class<?> aClass) {
+        if (Object.class == aClass) {
+            return Stream.empty();
+        }
+
+        return Streams.concat(Arrays.stream(aClass.getDeclaredFields()), getFields(aClass.getSuperclass()));
+    }
+
+    public static Optional<Collection> getExistingCollection(String name) {
+        return Couchbeans.BUCKET.collections().getAllScopes().stream()
+                .filter(scope -> Couchbeans.CBB_SCOPE.equals(scope.name()))
+                .flatMap(scope -> scope.collections().stream())
+                .filter(coll -> name.equals(coll.name()))
+                .findFirst().map(coll -> Couchbeans.SCOPE.collection(name));
+    }
+
+    public static Stream<CtField> getFields(CtClass ctClass) {
+        if (Object.class.getCanonicalName().equals(ctClass.getName())) {
+            return Stream.empty();
+        }
+        try {
+            return Streams.concat(Arrays.stream(ctClass.getDeclaredFields()), getFields(ctClass.getSuperclass()));
+        } catch (NotFoundException e) {
+            return Stream.empty();
+        }
+    }
+
+    public static Collection ensureCollectionExists(CtClass ctClass) {
+        String name = collectionName(ctClass);
+        return getExistingCollection(name).orElseGet(() -> {
+            String[] indexFields = getFields(ctClass)
+                    .filter(field -> field.hasAnnotation(Index.class))
+                    .map(CtField::getName)
+                    .toArray(String[]::new);
+
+            createCollectionIfNotExists(name);
+            createPrimaryIndexIfNotExists(name);
+            if (indexFields.length > 0) {
+                createIndexIfNotExists(name, indexFields);
+            }
+            return Couchbeans.SCOPE.collection(name);
+        });
+    }
+
+    private static String collectionName(CtClass ctClass) {
+        return ctClass.getName().replaceAll("\\.", "-");
+    }
+
+    public final static String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+    public static int injectClassloader(Class main, String[] args) {
+        if (System.getProperty("java.system.class.loader", "").equals(CouchbaseClassLoader.class.getCanonicalName())) {
+            return -1;
+        }
+
+        List<String> inputArguments = ManagementFactory.getRuntimeMXBean().getInputArguments();
+        String[] call = new String[inputArguments.size() + args.length + 5];
+        call[0] = javaBin;
+        call[1] = "-Djava.system.class.loader=" + CouchbaseClassLoader.class.getCanonicalName();
+        call[2] = "-cp";
+        call[3] = System.getProperty("java.class.path");
+        System.arraycopy(inputArguments.toArray(), 0, call, 4, inputArguments.size());
+        call[inputArguments.size() + 4] = main.getCanonicalName();
+        System.arraycopy(args, 0, call, inputArguments.size() + 5, args.length);
+
+        System.out.println("Restarting JVM with couchbase classloader...");
+        try {
+            ProcessBuilder pb = new ProcessBuilder(call);
+            System.out.println("Command: " + pb.command().stream().collect(Collectors.joining(" ")));
+            pb.environment().putAll(ENV);
+            pb.redirectInput();
+            pb.redirectOutput();
+            pb.redirectError();
+            Process p = null;
+            try {
+                pb.inheritIO().start();
+                System.exit(0);
+                return 0;
+            } catch (Exception e) {
+                p.destroyForcibly();
+                return 13;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 1;
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.couchbeans;
+package couchbeans;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

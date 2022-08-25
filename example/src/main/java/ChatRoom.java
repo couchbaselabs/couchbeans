@@ -1,4 +1,4 @@
-import com.couchbeans.Couchbeans;
+import couchbeans.Couchbeans;
 
 import java.util.List;
 

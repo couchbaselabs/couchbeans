@@ -1,9 +1,7 @@
-package com.couchbeans;
+package couchbeans;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MutationTreeWalker {

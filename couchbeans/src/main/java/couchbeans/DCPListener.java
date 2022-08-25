@@ -1,4 +1,4 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.ControlEventHandler;
@@ -11,12 +11,9 @@ import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
 import com.couchbase.client.dcp.message.DcpMutationMessage;
 import com.couchbase.client.dcp.message.MessageUtil;
 import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
-import com.couchbase.client.java.json.JsonObject;
-import com.couchbase.client.java.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
@@ -37,14 +34,16 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
     public static void main(String... args) {
         RUNNING.set(true);
-        Thread.currentThread().setContextClassLoader(new CouchbaseClassLoader(Thread.currentThread().getContextClassLoader()));
         CLIENT.controlEventHandler(INSTANCE);
         CLIENT.dataEventHandler(INSTANCE);
 
 
         CLIENT.connect().block();
+        System.out.println("DCP client connected.");
         CLIENT.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).block();
+        System.out.println("Starting the stream...");
         CLIENT.startStreaming().block();
+        System.out.println("Started the stream.");
         try {
             while (true) {
                 Thread.sleep(10000);
@@ -80,7 +79,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
         Class targetClass;
 
-        LOGGER.info("DCP Mutation message.\n\tCollection: {};\n\tKey: {};\n\tContent:{}\n\tMessage: {}",
+        LOGGER.warn("DCP Mutation message.\n\tCollection: {};\n\tKey: {};\n\tContent:{}\n\tMessage: {}",
                 cinfo.name(),
                 ckey.key(),
                 MessageUtil.getContentAsString(event),
@@ -94,25 +93,34 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
             }
         } else {
             try {
-                targetClass = Class.forName(className);
+                targetClass = Utils.collectionClass(className);
             } catch (ClassNotFoundException e) {
                 LOGGER.error("Failed to load class " + className, e);
                 return;
             }
         }
 
-        try {
-            Utils.getBeanInfo(targetClass.getCanonicalName(), ckey.key()).ifPresentOrElse(
-                    info -> MutationTreeWalker.processBeanUpdate(info, MessageUtil.getContentAsString(event)),
-                    () -> {
-                        BeanInfo info = MutationTreeWalker.registerBean(targetClass, ckey.key(), MessageUtil.getContentAsString(event));
-                        if (BeanLink.class.isAssignableFrom(targetClass)) {
-                            MutationTreeWalker.processNewBeanLink((BeanLink) info.bean());
+        if (targetClass.getPackageName().startsWith("couchbeans")) {
+            if (Singleton.class == targetClass) {
+                // todo: process singleton
+            }
+        } else if (targetClass.getPackageName().startsWith("java")) {
+            return;
+        } else {
+
+            try {
+                Utils.getBeanInfo(targetClass.getCanonicalName(), ckey.key()).ifPresentOrElse(
+                        info -> MutationTreeWalker.processBeanUpdate(info, MessageUtil.getContentAsString(event)),
+                        () -> {
+                            BeanInfo info = MutationTreeWalker.registerBean(targetClass, ckey.key(), MessageUtil.getContentAsString(event));
+                            if (BeanLink.class.isAssignableFrom(targetClass)) {
+                                MutationTreeWalker.processNewBeanLink((BeanLink) info.bean());
+                            }
                         }
-                    }
-            );
-        } catch (Exception e) {
-            LOGGER.error("Failed to process message", e);
+                );
+            } catch (Exception e) {
+                LOGGER.error("Failed to process message", e);
+            }
         }
     }
 

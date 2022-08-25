@@ -1,7 +1,5 @@
-package com.couchbeans;
+package couchbeans;
 
-import com.couchbeans.annotations.Local;
-import jdk.jshell.execution.Util;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;

@@ -1,4 +1,4 @@
-package com.couchbeans;
+package couchbeans;
 
 import com.couchbase.client.core.cnc.EventBus;
 import com.couchbase.client.java.Bucket;
@@ -8,10 +8,11 @@ import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.codec.JacksonJsonSerializer;
 import com.couchbase.client.java.codec.JsonSerializer;
 import com.couchbase.client.java.env.ClusterEnvironment;
-import com.couchbase.client.java.json.JsonObject;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -83,16 +84,27 @@ public class Couchbeans {
     public static String key(Object bean) {
         synchronized (KEY) {
             if (!KEY.containsKey(bean)) {
+                try {
+                    Method keyMethod = bean.getClass().getMethod("naturalKey");
+                    String key = (String) keyMethod.invoke(bean);
+                    KEY.put(bean, key);
+                    return key;
+                } catch (InvocationTargetException e) {
+                    BeanException.report(bean, e);
+                } catch (Exception e) {
+                    // noop
+                }
                 KEY.put(bean, UUID.randomUUID().toString());
             }
         }
         return KEY.get(bean);
     }
 
-    public static CompletableFuture<Void> store(Object bean) {
-        return CompletableFuture.runAsync(() -> {
-            SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key(bean), bean);
-        });
+    public static String store(Object bean) {
+        String key = key(bean);
+        Utils.ensureCollectionExists(bean.getClass());
+        SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key, bean);
+        return key;
     }
 
     public static CompletableFuture<Void> delete(Object bean) {
@@ -105,7 +117,7 @@ public class Couchbeans {
     public static <S, T> CompletableFuture<BeanLink<S, T>> link(S source, T target) {
         return CompletableFuture.supplyAsync(() -> Utils.linkBetween(source, target).orElseGet(() -> {
             BeanLink<S, T> result = new BeanLink<S, T>(source, target);
-            store(result).join();
+            store(result);
             return result;
         }));
     }

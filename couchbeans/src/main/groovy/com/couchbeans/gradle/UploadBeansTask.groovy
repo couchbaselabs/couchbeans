@@ -1,20 +1,21 @@
 package com.couchbeans.gradle
 
-import com.couchbeans.BeanUploader
-import com.couchbeans.Utils
+import couchbeans.BeanUploader
+import couchbeans.Utils
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.tasks.Jar
 
 abstract class UploadBeansTask extends DefaultTask {
+    private CouchbeansGradlePlugin plugin
     UploadBeansTask() {
         super()
         dependsOn(project.tasks.jar)
+        plugin = project.plugins.apply(CouchbeansGradlePlugin)
     }
 
     @TaskAction
     def uploadCouchbeans() {
-        CouchbeansGradlePlugin plugin = project.plugins.apply(CouchbeansGradlePlugin)
         CouchbeansExtension config = plugin.config
         Utils.envOverride("CBB_CLUSTER", config.getCluster().getOrElse("localhost"));
         Utils.envOverride("CBB_USERNAME", config.getUsername().getOrElse("Administrator"));
@@ -24,6 +25,6 @@ abstract class UploadBeansTask extends DefaultTask {
 
         Jar jarTask = project.tasks.jar;
         String[] jars = jarTask.outputs.files.files.stream().map(f -> f.toString()).toArray(String[]::new);
-        BeanUploader.main(jars);
+        BeanUploader.run(jars);
     }
 }
