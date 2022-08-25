@@ -1,40 +1,19 @@
 package com.couchbeans;
 
 import com.couchbase.client.java.Collection;
-import com.couchbase.client.java.json.JsonArray;
-import com.couchbase.client.java.json.JsonObject;
+import javassist.CannotCompileException;
+import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.NotFoundException;
-import javassist.bytecode.AnnotationDefaultAttribute;
-import javassist.bytecode.AnnotationsAttribute;
-import javassist.bytecode.AttributeInfo;
-import javassist.bytecode.ClassFile;
-import javassist.bytecode.CodeAttribute;
-import javassist.bytecode.ConstPool;
 import javassist.bytecode.Descriptor;
 import javassist.bytecode.LocalVariableAttribute;
 import javassist.bytecode.MethodInfo;
-import javassist.bytecode.MethodParametersAttribute;
-import javassist.bytecode.annotation.Annotation;
-import javassist.bytecode.annotation.AnnotationMemberValue;
-import javassist.bytecode.annotation.ArrayMemberValue;
-import javassist.bytecode.annotation.BooleanMemberValue;
-import javassist.bytecode.annotation.ByteMemberValue;
-import javassist.bytecode.annotation.CharMemberValue;
-import javassist.bytecode.annotation.ClassMemberValue;
-import javassist.bytecode.annotation.DoubleMemberValue;
-import javassist.bytecode.annotation.EnumMemberValue;
-import javassist.bytecode.annotation.FloatMemberValue;
-import javassist.bytecode.annotation.IntegerMemberValue;
-import javassist.bytecode.annotation.LongMemberValue;
-import javassist.bytecode.annotation.MemberValue;
-import javassist.bytecode.annotation.ShortMemberValue;
-import javassist.bytecode.annotation.StringMemberValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,19 +22,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 public class BeanUploader {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BeanUploader.class);
     private static Collection
             classCollection,
             metaCollection;
@@ -65,6 +40,7 @@ public class BeanUploader {
     public static void main(String[] args) {
         classCollection = Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME);
         metaCollection = Couchbeans.SCOPE.collection(App.METHOD_COLLECTION_NAME);
+        ClassPool.getDefault().insertClassPath(new ClassClassPath(BeanMethod.class));
 
         ensureDbStructure();
         processPaths(args);
@@ -163,12 +139,68 @@ public class BeanUploader {
                 });
     }
 
-    private static void instrumentMethod(CtMethod mi) {
-        mi.insertBefore("if (");
+    public static boolean interceptSetter(Object bean, String fieldName, Object value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
+    }
+
+    public static boolean interceptSetterWrapped(Object bean, String fieldName, Object[] value) {
+        if (Couchbeans.owned(bean)) {
+            return false;
+        }
+
+        try {
+            bean.getClass().getField(fieldName).set(bean, value[0]);
+        } catch (Exception e) {
+            BeanException.report(bean, e);
+        }
+
+        return true;
+    }
+
+    private static void instrumentMethod(CtMethod method) {
+        BeanMethod.getSetterField(method).ifPresent(field -> {
+                    instrumentMethod(method, "interceptSetter",
+                            c -> c.append('"').append(field.getName()).append('"'));
+                }
+        );
+    }
+
+    private static void instrumentMethod(CtMethod method, String interceptorMethodName, Consumer<StringBuilder> argBuilder) {
+        StringBuilder c = new StringBuilder();
+        MethodInfo mi = method.getMethodInfo();
+        LocalVariableAttribute vartable = (LocalVariableAttribute) mi.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
+
+        try {
+            c.append("if (com.couchbeans.BeanUploader.").append(interceptorMethodName).append("(this");
+            if (argBuilder != null) {
+                argBuilder.accept(c.append(", "));
+            }
+            for (int i = 0; i < method.getParameterTypes().length; i++) {
+                String argName = vartable.variableName(i + 1);
+                c.append(", ").append(argName);
+            }
+            c.append(")) { ");
+
+            if (method.getReturnType() == CtClass.voidType) {
+                c.append("return;");
+            } else {
+                c.append("return null;");
+            }
+            c.append(" }");
+
+            String code = c.toString();
+
+            LOGGER.info("Instrumenting method {} with code: \n {}", method.getLongName(), code);
+            method.insertBefore(code);
+        } catch (NotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (CannotCompileException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static List<String> getMethodArguments(String signature) {
-        signature = signature.substring(signature.indexOf("(")+1);
+        signature = signature.substring(signature.indexOf("(") + 1);
         System.out.println("Parsing signature: " + signature);
         if (signature.lastIndexOf(")") == 0) {
             return Collections.EMPTY_LIST;
@@ -250,5 +282,37 @@ public class BeanUploader {
         }
 
         return type;
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, boolean value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, char value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, byte value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, short value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, int value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, long value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, float value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+    }
+
+    public static boolean interceptSetter(Object bean, String fieldName, double value) {
+        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
     }
 }

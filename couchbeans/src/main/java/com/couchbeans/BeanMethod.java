@@ -2,8 +2,14 @@ package com.couchbeans;
 
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
+import javassist.CtClass;
+import javassist.CtField;
+import javassist.CtMethod;
+import javassist.NotFoundException;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -12,6 +18,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -189,6 +196,43 @@ public class BeanMethod {
                 .collect(Collectors.toList());
     }
 
+    public static Optional<CtField> getSetterField(CtMethod method) {
+        String methodName = method.getName();
+        CtClass type = method.getDeclaringClass();
+        int mods = method.getModifiers();
+
+        if (Modifier.isStatic(mods) || Modifier.isAbstract(mods)) {
+            return Optional.empty();
+        }
+
+        try {
+            if (method.getParameterTypes().length != 1) {
+                return Optional.empty();
+            }
+        } catch (NotFoundException e) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(type.getField(methodName));
+        } catch (NotFoundException e) {
+            // noop
+        }
+
+        try {
+            if (methodName.length() > 3 && methodName.startsWith("set")) {
+                String fieldName = methodName.substring(3, 4).toLowerCase();
+                if (methodName.length() > 4) {
+                    fieldName += methodName.substring(4);
+                }
+                return Optional.of(type.getField(fieldName));
+            }
+        } catch (NotFoundException ex) {
+            // noop
+        }
+
+        return Optional.empty();
+    }
 
     public class Arguments {
         private List<Object> arguments;

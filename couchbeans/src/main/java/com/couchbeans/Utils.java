@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 
 public class Utils {
     public static String collectionName(Class from) {
-        return from.getCanonicalName();
+        return from.getCanonicalName().replaceAll("\\.", "-");
     }
 
     public static Class collectionClass(String collectionName) throws ClassNotFoundException {
