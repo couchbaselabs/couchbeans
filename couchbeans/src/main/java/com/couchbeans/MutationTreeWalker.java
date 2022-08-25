@@ -58,11 +58,7 @@ public class MutationTreeWalker {
                         pathBean = path[0][i];
                         beanPath = new Object[path[0].length - i - 1];
                         methodNamePattern = parentMethodNamePattern;
-                        if (i < path[0].length - 1) {
-                            System.arraycopy(path[0], i + 1, beanPath, 0, beanPath.length);
-                        } else {
-                            System.arraycopy(path[1], 0, beanPath, 0, beanPath.length);
-                        }
+                        System.arraycopy(path[0], i + 1, beanPath, 0, beanPath.length);
                     } else if (i == path[0].length - 1) {
                         // this is the source and we don't want to handle it as parent
                         continue;
