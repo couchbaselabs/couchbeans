@@ -1,32 +1,32 @@
 package com.couchbeans;
 
-import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
+import org.gradle.configurationcache.problems.PropertyTrace;
+
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 public class MutationTreeWalker {
-    protected static void processBeanUpdate(Object bean) {
+    protected static void processBeanUpdate(Object bean, String source) {
         BeanInfo info = Couchbeans.firstLinked(bean, BeanInfo.class).orElse(null);
         if (info == null) {
-            createBeanInfo(bean);
+            createBeanInfo(bean, source);
+            info.updateAppliedSource(source);
             return;
         }
-        List<BeanLink> children = Utils.findLinkedBeans(bean);
+        List<String> changedFields = info.detectChangedFields(source);
+        List<BeanLink> parents = Utils.parents(bean);
         BeanContext ctx = new BeanContext();
         ctx.add(bean);
         final Set<String> processedMethods = new HashSet<>();
-        children.stream()
-                .forEach(childLink -> {
-                    Object target = childLink.target();
+        parents.stream()
+                .forEach(parentLink -> {
+                    Object target = parentLink.source();
                     Utils.inheritanceChain(target.getClass()).forEach(targetIdentity -> {
-                        for (List<BeanMethod> subscribers = BeanMethod.findSubscribers(childLink.targetType(), ctx.identities(), processedMethods); !subscribers.isEmpty(); subscribers = BeanMethod.findSubscribers(childLink.targetType(), ctx.identities(), processedMethods)) {
+                        Supplier<List<BeanMethod>> methods = () -> BeanMethod.findSubscribers(parentLink.sourceType(), "update%", ctx.identities(), processedMethods);
+
+                        for (List<BeanMethod> subscribers = methods.get(); !subscribers.isEmpty(); subscribers = methods.get()) {
                             for (BeanMethod methodInfo : subscribers) {
                                 processedMethods.add(Couchbeans.key(methodInfo));
                                 ctx.addAll(methodInfo.apply(target, ctx));
@@ -43,7 +43,7 @@ public class MutationTreeWalker {
      * @param bean
      * @return
      */
-    private static BeanInfo createBeanInfo(Object bean) {
+    private static BeanInfo createBeanInfo(Object bean, String source) {
         BeanContext ctx = new BeanContext();
         ctx.add(bean);
 
@@ -53,8 +53,9 @@ public class MutationTreeWalker {
         }
 
         final Set<String> processedMethods = new HashSet<>();
+        Supplier<List<BeanMethod>> methods = () -> BeanMethod.findConstructors(ctx.identities(), processedMethods);
 
-        for (List<BeanMethod> constructors = BeanMethod.findConstructors(ctx.identities(), processedMethods); !constructors.isEmpty(); constructors = BeanMethod.findConstructors(ctx.identities(), processedMethods)) {
+        for (List<BeanMethod> constructors = methods.get(); !constructors.isEmpty(); constructors = methods.get()) {
             for (BeanMethod methodInfo : constructors) {
                 processedMethods.add(Couchbeans.key(methodInfo));
                 ctx.addAll(methodInfo.construct(ctx));
@@ -62,6 +63,7 @@ public class MutationTreeWalker {
         }
 
         BeanInfo bi = new BeanInfo(bean);
+        bi.updateAppliedSource(source);
         Couchbeans.store(bi);
         Couchbeans.link(bean, bi);
         return bi;

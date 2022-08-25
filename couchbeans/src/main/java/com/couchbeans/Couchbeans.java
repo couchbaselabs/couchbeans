@@ -5,13 +5,14 @@ import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.codec.JsonSerializer;
-import com.couchbase.client.java.json.JsonObject;
-import com.couchbase.client.java.kv.GetResult;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,10 @@ public class Couchbeans {
     public static final EventBus EVENT_BUS;
 
     public static final JsonSerializer SERIALIZER;
+
+    protected static final Map<Class, Map<String, Object>> LOCAL_BEANS = Collections.synchronizedMap(new HashMap<>());
+    protected static final Map<Class, Map<String, Object>> GLOBAL_BEANS = Collections.synchronizedMap(new HashMap<>());
+    protected static final Map<Object, Void> OWNED = Collections.synchronizedMap(new WeakHashMap<>());
     protected static final Map<Object, String> KEY = Collections.synchronizedMap(new WeakHashMap<>());
 
     static {
@@ -49,7 +54,7 @@ public class Couchbeans {
     }
 
     public static <T> Optional<T> firstLinked(Object bean, Class<T> type) {
-        return Utils.findLinkedBeans(bean, type)
+        return Utils.children(bean, type)
                 .stream()
                 .map(BeanLink::target)
                 .map(type::cast)
@@ -57,7 +62,13 @@ public class Couchbeans {
     }
 
     public static <T> Stream<T> allLinked(Object bean, Class<T> type) {
-        return Utils.findLinkedBeans(bean, type)
+        return Utils.children(bean, type)
+                .stream()
+                .map(type::cast);
+    }
+
+    public static <T> Stream<T> allParents(Object bean, Class<T> type) {
+        return Utils.parents(bean, type)
                 .stream()
                 .map(type::cast);
     }
@@ -84,14 +95,18 @@ public class Couchbeans {
     }
 
     public static CompletableFuture<BeanLink> link(Object source, Object target) {
-        return CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> Utils.linkBetween(source, target).orElseGet(() -> {
             BeanLink result = new BeanLink(source, target);
             store(result).join();
             return result;
-        });
+        }));
     }
 
     public static String ref(Object bean) {
         return String.format("couchbean://%s/%s", bean.getClass().getCanonicalName(), key(bean));
+    }
+
+    public static boolean owned(Object bean) {
+        return OWNED.containsKey(bean);
     }
 }

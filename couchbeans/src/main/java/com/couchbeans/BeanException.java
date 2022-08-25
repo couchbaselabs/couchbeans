@@ -27,4 +27,10 @@ public class BeanException {
     public String location() {
         return location;
     }
+
+    public static void report(Object related, Throwable e) {
+        BeanException be = new BeanException(e);
+        Couchbeans.store(be);
+        Couchbeans.link(related, be);
+    }
 }

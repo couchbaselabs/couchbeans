@@ -86,11 +86,14 @@ public class BeanMethod {
     }
 
     public static List<BeanMethod> findConstructors(Collection<String> arguments, Collection<String> except) {
+        return findConstructors("%", arguments, except);
+    }
+    public static List<BeanMethod> findConstructors(String ofType, Collection<String> arguments, Collection<String> except) {
         JsonArray args = JsonArray.create();
         arguments.forEach(args::add);
         JsonArray ex = JsonArray.create();
         except.forEach(ex::add);
-        return Utils.findConsumers("%", "<init>", args, ex);
+        return Utils.findConsumers(ofType, "<init>", args, ex);
     }
 
     public static List<BeanMethod> findSubscribers(Collection<String> arguments, Collection<String> except) {
@@ -98,11 +101,14 @@ public class BeanMethod {
     }
 
     public static List<BeanMethod> findSubscribers(String owningType, Collection<String> arguments, Collection<String> except) {
+        return findSubscribers(owningType, "%", arguments, except);
+    }
+    public static List<BeanMethod> findSubscribers(String owningType, String name, Collection<String> arguments, Collection<String> except) {
         JsonArray args = JsonArray.create();
         arguments.forEach(args::add);
         JsonArray ex = JsonArray.create();
         except.forEach(ex::add);
-        return Utils.findConsumers(owningType, "%", args, ex);
+        return Utils.findConsumers(owningType, name, args, ex);
     }
 
     public List<Object> apply(Object target, BeanContext ctx) {

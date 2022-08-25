@@ -17,12 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 public class DCPListener implements DataEventHandler, ControlEventHandler {
 
     private static final DCPListener INSTANCE = new DCPListener();
     private static final Logger LOGGER = LoggerFactory.getLogger(DCPListener.class);
+
+    public static final AtomicBoolean RUNNING = new AtomicBoolean(false);
 
     private static final Client CLIENT = Client.builder()
             .collectionsAware(true)
@@ -33,6 +36,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
             .build();
 
     public static void main(String... args) {
+        RUNNING.set(true);
         Thread.currentThread().setContextClassLoader(new CouchbaseClassLoader(Thread.currentThread().getContextClassLoader()));
         CLIENT.controlEventHandler(INSTANCE);
         CLIENT.dataEventHandler(INSTANCE);
@@ -48,6 +52,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         } catch (InterruptedException e) {
 
         } finally {
+            RUNNING.set(false);
             CLIENT.disconnect().block();
         }
     }
@@ -101,7 +106,8 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         }
 
         Couchbeans.KEY.put(bean, ckey.key());
-        MutationTreeWalker.processBeanUpdate(bean);
+        Couchbeans.OWNED.put(bean, null);
+        MutationTreeWalker.processBeanUpdate(bean, MessageUtil.getContentAsString(event));
     }
 
     public static Stream<Object> processBean(Object bean) {

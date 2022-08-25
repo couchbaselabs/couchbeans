@@ -3,7 +3,11 @@ package com.couchbeans;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
+import com.couchbeans.annotations.External;
+import com.couchbeans.annotations.Global;
+import com.couchbeans.annotations.Local;
 
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,7 +80,7 @@ public class Utils {
         return ENV.getOrDefault(name, defaultValue);
     }
 
-    public static List<BeanLink> findLinkedBeans(Object source) {
+    public static List<BeanLink> children(Object source) {
         String sourceKey = Couchbeans.KEY.get(source);
         if (sourceKey == null) {
             throw new IllegalArgumentException("Unknown bean: " + source);
@@ -93,7 +97,32 @@ public class Utils {
         ).rowsAs(BeanLink.class);
     }
 
-    public static List<BeanLink> findLinkedBeans(Object source, Class target) {
+    public static List<BeanLink> parents(Object source) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2",
+                        collectionRef(collectionName(source.getClass()))
+                ),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        source.getClass().getCanonicalName(),
+                        Couchbeans.key(source)
+                ))
+        ).rowsAs(BeanLink.class);
+    }
+
+    public static List<BeanLink> parents(Object source, Class type) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2 AND sourceType = $3",
+                        collectionRef(collectionName(source.getClass()))
+                ),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        source.getClass().getCanonicalName(),
+                        Couchbeans.key(source),
+                        type.getCanonicalName()
+                ))
+        ).rowsAs(BeanLink.class);
+    }
+
+    public static List<BeanLink> children(Object source, Class target) {
 
         String sourceKey = Couchbeans.KEY.get(source);
         if (sourceKey == null) {
@@ -154,5 +183,34 @@ public class Utils {
         HashSet<String> root = new HashSet<>();
         root.add(Object.class.getCanonicalName());
         return root;
+    }
+
+    public static boolean hasLocalDataService() {
+        // todo: implement local data service detection
+        return false;
+    }
+
+    public static Optional<BeanLink> linkBetween(Object source, Object target) {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3 AND targetKey = $4", collectionRef(collectionName(BeanLink.class))),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        source.getClass().getCanonicalName(), Couchbeans.key(source),
+                        target.getClass().getCanonicalName(), Couchbeans.key(target)
+                ))
+        ).rowsAs(BeanLink.class).stream().findFirst();
+    }
+
+    public static BeanType beanType(Object bean) {
+        Class type = bean.getClass();
+        if (type.isAnnotationPresent(Global.class)) {
+            return BeanType.GLOBAL;
+        } else if (type.isAnnotationPresent(External.class)) {
+            return BeanType.EXTERNAL;
+        } else if (type.isAnnotationPresent(Local.class)) {
+            return BeanType.LOCAL;
+        } else if (Modifier.isProtected(type.getModifiers())) {
+            return BeanType.INTERNAL;
+        }
+        return BeanType.NORMAL;
     }
 }
