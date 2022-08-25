@@ -45,7 +45,7 @@ public class MutationTreeWalker {
                                 .map(childPath -> new Object[][]{parentPath, childPath})
                         );
             } else {
-                pathStream = Arrays.stream(childPaths).map(childPath -> new Object[][]{childPath});
+                pathStream = Arrays.stream(childPaths).map(childPath -> new Object[][]{new Object[0], childPath});
             }
 
             pathStream.forEach(path -> {
