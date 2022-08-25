@@ -114,7 +114,4 @@ External beans are global and processed only on external nodes.
 
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
-Couchbeans bean uploader instruments the following bean methods, changing their behavior on nodes other than the node that should be handling bean DCP events:
-- Setter methods are forced to only set the field value
-- `linkTo` and `linkFrom` methods create links instead of processing them
-- `update...` methods store provided beans onto the cluster and always return `null`
+To avoid running setter logic on foreign beans, all bean setters are instrumented so that they just set the field value without running actual method code.
