@@ -28,15 +28,6 @@ CBB_SCOPE="_default"
 Use `com.couchbeans.DcpListener` main class to launch a node. 
 Use same environment variables as with `com.couchbeans.BeanUploader` to configure couchbase connection.
 
-## DCP doc creation event (implemented)
-- find all constructors that accept doc type as argument
-- create all beans where created doc would be the only argument
-- link created beans under the original bean
-- Repeat until all beans created or unable to create any beans:
-  - find all constructors that accept paths terminating at created beans
-  - convert created beans to documents an store them on the cluster (which would trigger cascading doc creation events)
-  - store links from argument beans to created from them beans
-
 ## DCP doc mutation event (implemented)
 - if the bean is global, then get mutated bean and call any present setters for all changed fields 
 - in parent beans, find all methods with names starting with "update" and doc type as argument, then call them, storing parent and returned beans into mutation context
@@ -44,10 +35,10 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 - store all changed beans
 
 ## DCP doc deletion event
-- call destructors on the doc bean and all linked to it beans (desctructors? in Java? what is that?!)
-- delete the beans
+- call destructor on the bean (desctructors? in Java? what is that?!)
+- unlink the bean from all its parents and children
 
-## Bean link event
+## Bean link event (implemented)
 - Call methods that start with "linkTo" and accept the parent bean type 
 - Handle the event by calling parent bean methods with names that start with "linkChild" and accept the linked bean type
 - Propagate the event up the graph by calling `linkChild` methods that accept types matching types of the nodes from the linked node to the parent node.
