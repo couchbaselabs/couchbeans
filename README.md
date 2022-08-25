@@ -60,7 +60,7 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 - Destruct all beans that are linked to the unlinked bean and any of its unlinked parents
 
 ## Method matching
-Couchbeans matches methods and constructors on the graph path using their argument lists as path templates.
+Couchbeans matches methods and constructors againg graph paths using method argument lists as path templates.
 A single method argument matches all paths to beans of the argument type with length equals to 1.
 Multiple arguments match paths literally, for example method with arguments `TypeA` and `TypeB` will match all paths with length 2 that first go through a `TypeA` bean and then end at a `TypeB` bean.
 `Object` arguments can be used to match paths through beans of any type.
