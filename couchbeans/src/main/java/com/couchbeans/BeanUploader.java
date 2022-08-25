@@ -1,6 +1,10 @@
 package com.couchbeans;
 
 import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.codec.RawBinaryTranscoder;
+import com.couchbase.client.java.codec.Transcoder;
+import com.couchbase.client.java.kv.UpsertOptions;
+import com.couchbase.client.java.query.QueryOptions;
 import javassist.CannotCompileException;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
@@ -10,6 +14,7 @@ import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 import javassist.bytecode.LocalVariableAttribute;
 import javassist.bytecode.MethodInfo;
+import org.gradle.internal.impldep.org.bouncycastle.openpgp.PGPSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +41,7 @@ public class BeanUploader {
             metaCollection;
 
     private static Map<String, String> env;
+    private static int binaryDocument;
 
     public static void main(String[] args) {
         classCollection = Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME);
@@ -128,22 +134,32 @@ public class BeanUploader {
 
         Arrays.stream(ctClass.getMethods())
                 .filter(mi -> !mi.getDeclaringClass().getName().equals(Object.class.getCanonicalName()))
+                .peek(BeanUploader::instrumentMethod)
+                .filter(mi -> {
+                    String methodName = mi.getName();
+                    return methodName.startsWith("linkTo")
+                            || methodName.startsWith("unlinkFrom")
+                            || methodName.startsWith("linkChild")
+                            || methodName.startsWith("unlinkChild")
+                            || methodName.startsWith("update");
+                })
                 .forEach(mi -> {
                     List<String> arguments = getMethodArguments(mi.getMethodInfo().getDescriptor());
                     if (arguments.size() > 0) {
                         BeanMethod method = new BeanMethod(mi.getDeclaringClass().getName(), mi.getName(), arguments);
                         System.out.println("Upserting bean method " + mi.getSignature() + ": " + method.toJsonObject().toString());
                         metaCollection.upsert(method.getHash(), method.toJsonObject());
-                        instrumentMethod(mi);
                     }
                 });
+
+        Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME)
+            .upsert(name, ctClass.toBytecode(), UpsertOptions.upsertOptions().transcoder(RawBinaryTranscoder.INSTANCE));
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, Object value) {
         return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
-
-    public static boolean interceptSetterWrapped(Object bean, String fieldName, Object[] value) {
+    public static boolean interceptSetterWrapped(Object bean, String fieldName, Object... value) {
         if (Couchbeans.owned(bean)) {
             return false;
         }
