@@ -33,29 +33,15 @@ Use same environment variables as with `com.couchbeans.BeanUploader` to configur
 Events are propagated on all paths that include event source bean.
 There is no guaranteed order in which paths are processed,
  but inside every path events propagate from the topmost bean in the path.
-On event source 
+Events that are coming from child nodes and events coming from parent nodes mapped on different bean methods.
+Some of the events may also be mapped onto the source bean as if it was a child node.
 
-## DCP doc mutation event (implemented)
-- if the bean is global, then get mutated bean and call any present setters for all changed fields 
-- in parent beans, find all methods with names starting with "update" and doc type as argument, then call them, storing parent and returned beans into mutation context
-- repeat for all parent and returned beans, propagating the event up the graph
-- store all changed beans
-
-## DCP doc deletion event
-- call destructor on the bean (desctructors? in Java? what is that?!)
-- unlink the bean from all its parents and children
-
-## Bean link event (implemented)
-- Call methods that start with "linkTo" and accept the parent bean type 
-- Handle the event by calling parent bean methods with names that start with "linkChild" and accept the linked bean type
-- Propagate the event up the graph by calling `linkChild` methods that accept types matching types of the nodes from the linked node to the parent node.
-- Construct all beans that can be constructed from new graph paths terminating with created link
-
-## Bean unlink event (implemented)
-- Call methods that start with "unlinkFrom" and accept the parent bean type
-- Handle the event by calling this parent bean methods with names that start with "unlinkChild" and accept the unlinked bean type
-- Propagate the event up the graph by calling `unlinkChild` methods that accept types matching types of the nodes from the unlinked node to the parent node.
-- Destruct unlinked bean if it has no parents left
+### Graph events
+| Event name | Child node handler method name pattern | parent node handler method name pattern | mapped to source? |
+|---|---|---|---|
+| node updated | updateParent% | updateChild% | no |
+| node linked | linkTo% | linkChild% | yes |
+| node unlinked | unlinkFrom% | unlinkChild% | yes |
 
 ## Method matching (implemented)
 Couchbeans matches methods and constructors against graph paths using method argument lists as path templates.
