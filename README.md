@@ -1,5 +1,5 @@
 # couchbeans
-(Under development)
+(POC, Under development)
 
 Distributed reactive jvm environment with couchbase backend that turns couchbase buckets into self-mutating graph databases using java class structures as graph definitions.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
