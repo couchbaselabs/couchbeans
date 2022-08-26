@@ -79,23 +79,9 @@ By default, beans belong to the `Normal` scope.
 Bean scopes are mutually exclusive.
 Use `@Scope` annotation to set bean scope. 
 
-### Local beans
-- All beans under `java` package
-- All beans marked with `@Local` annotation
-
-Local beans are not stored on the cluster and are processed locally on the node.
-Local beans can still be linked to other beans but these links will not appear on any other nodes and will not survive a node restart.
-Local beans are always present in all bean update/creation contexts that are being handled on the node.
-
-### Internal beans
-Internal beans are represented by protected classes and never handled or available on any other than internal nodes.
-
-### External beans
-Beans can be marked with `@External` annotation. 
-External beans are global and processed only on external nodes.
-
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
+
 #### Setter instrumentation (implemented)
 To avoid running setter logic on foreign beans, all bean setters are instrumented so that, when invoked on a foreign bean, they just set the field value without running actual method code (the code will be executed later on the owning node).
 
