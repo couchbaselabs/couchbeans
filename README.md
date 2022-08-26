@@ -9,6 +9,8 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 
 
 # (Very) Loose descripion of how this would work:
+## Document mapping
+Couchbeans maps documents onto java beans using collection names, for example a bean of class `com.example.Example` will be stored as a json document into collection `com-example-Example`. 
 
 ## Uploading bean definitions
 ### Via CLI
@@ -58,33 +60,24 @@ Applications should perform long-running tasks asynchronously.
 For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
 
 ## Node affinity
-- the service should run on every node that runs data service
-- DCP events should be processed on the node to which the document belongs
+### Node types 
+| Node Type | Description | Example |
+| -- | -- | -- |
+| Internal | Internal nodes are nodes that run Couchbeans together with Couchbase data service | A node that is a part of a signal processing cluster |
+| External | External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans | A node that provides GraphQL service |
+| Source | Source nodes are applications that use Couchbeans as an sdk library wihout starting DcpListener | Sensor data collection agent that stores the data as graph vertices |
 
-### Internal nodes
-Internal nodes are nodes that run Couchbeans together with Couchbase data service.
+### Bean scopes
+| Scope | Description | Example |
+| -- | -- | -- |
+| Global | Global beans are "owned" by all nodes connected to the bucket | Application configuration and status bean |
+| External | External beans are processed only on External nodes | GraphQL server configuration and status bean |
+| Normal | Just your regular friendly neighborhood graph vertice | Any data bean |
+| Local | Local beans belong only to the node on which they were created and are never stored on the bucket | An API request that is being processed |
 
-### External nodes
-External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans.
-External nodes can be used to provide services outside of couchbase cluster, for example for load balncing or external system inegrations.
-  
-### Source nodes
-Source nodes are applications that use Couchbeans as a library wihout starting DcpListener.
-These nodes can only query beans, process local beans, and create or 
-edit cluster beans, but not process their changes as they do not listen 
-to DCP events.
-In other words, source nodes can only be sources of events and not consumers.
-Source nodes are intended to be used for:
-- Collecting data 
-- Graph editing
-
-### Global beans
-Beans marked with `@Global` annotation are processed differently:
-- updates to singleton bean fields are processed on all nodes (although updates to linked beans are still processed on their corresponding nodes)
-- singletons should be kept in memory at all times on all nodes.
-- Global beans are always present in all bean update/creation contexts.
-
-So, returning to the previous example, to launch a web-server on all nodes, mark `WebServer` bean with `@Global` and it will run on every node in the cluster that runs couchbeans.
+By default, beans belong to the `Normal` scope.
+Bean scopes are mutually exclusive.
+Use `@Scope` annotation to set bean scope. 
 
 ### Local beans
 - All beans under `java` package
