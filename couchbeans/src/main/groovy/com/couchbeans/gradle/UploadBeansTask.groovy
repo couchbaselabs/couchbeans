@@ -1,7 +1,7 @@
 package com.couchbeans.gradle
 
-import couchbeans.BeanUploader
-import couchbeans.Utils
+import cbb.BeanUploader
+import cbb.Utils
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.tasks.Jar
