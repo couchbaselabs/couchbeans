@@ -60,10 +60,10 @@ Applications should perform long-running tasks asynchronously.
 For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
 
 ## Node affinity
-### Affinity tags 
+Use `CBB_NODE_TAGS` environment variable when starting a node to provide a comma-separated list of tags for the node.
+Use `@TargetNodes` annotation on a bean class to specify tags that a node should have in order to own the bean.
 
-
-### Bean scopes
+## Bean scopes
 | Scope | Description | Example |
 | -- | -- | -- |
 | MEMORY | Memory beans belong only to the node on which they were created and are never stored on the bucket | An API request that is being processed |
