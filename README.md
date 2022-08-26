@@ -60,22 +60,18 @@ Applications should perform long-running tasks asynchronously.
 For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to changes of `WebServer.running` boolean field, can start a new thread for web server's socker listener when the value is set to `true` and stop it otherwise.
 
 ## Node affinity
-### Node types 
-| Node Type | Description | Example |
-| -- | -- | -- |
-| Internal | Internal nodes are nodes that run Couchbeans together with Couchbase data service | A node that is a part of a signal processing cluster |
-| External | External nodes are nodes that run Couchbeans without running Couchbase data service but still listen to DCP events to maintain global beans | A node that provides GraphQL service |
-| Source | Source nodes are applications that use Couchbeans as an sdk library wihout starting DcpListener | Sensor data collection agent that stores the data as graph vertices |
+### Affinity tags 
+
 
 ### Bean scopes
 | Scope | Description | Example |
 | -- | -- | -- |
-| Global | Global beans are "owned" by all nodes connected to the bucket | Application configuration and status bean |
-| External | External beans are processed only on External nodes | GraphQL server configuration and status bean |
-| Normal | Just your regular friendly neighborhood graph vertice | Any data bean |
-| Local | Local beans belong only to the node on which they were created and are never stored on the bucket | An API request that is being processed |
+| MEMORY | Memory beans belong only to the node on which they were created and are never stored on the bucket | An API request that is being processed |
+| BUCKET | Just your regular friendly neighborhood graph vertice stored on the couchbase bucket | Any data bean |
+| NODE | `NODE` beans are created for each node connected to the bucket and owned by that node | NodeInfo beans |
+| GLOBAL | `GLOBAL` beans are created when their types are uploaded onto the cluster | Application configuration and status bean |
 
-By default, beans belong to the `Normal` scope.
+By default, beans belong to the `BUCKET` scope.
 Bean scopes are mutually exclusive.
 Use `@Scope` annotation to set bean scope. 
 
