@@ -18,7 +18,7 @@ public class Message {
         return text;
     }
 
-    public void linkTo(User user) {
+    public void linkChild(User user) {
         sendername = user.username();
     }
 
