@@ -107,5 +107,7 @@ Foreign bean is a bean object that is loaded on a node other than internal node 
 To avoid running setter logic on foreign beans, all bean setters are instrumented so that, when invoked on a foreign bean, they just set the field value without running actual method code (the code will be executed later on the owning node).
 
 ## Indexes
+![Screenshot from 2022-08-25 19-21-23](https://user-images.githubusercontent.com/807041/186955297-fe10a46d-7372-4069-9fff-15f1871d73f4.png)
+
 Couchbeans create primary indexes automatically.
 To create secondary index on bean fields, use `@Index` annotation.
