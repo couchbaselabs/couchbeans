@@ -73,7 +73,8 @@ Use `@TargetNodes` annotation on a bean class to specify tags that a node should
 
 By default, beans belong to the `BUCKET` scope.
 Bean scopes are mutually exclusive.
-Use `@Scope` annotation to set bean scope. 
+Use `@Scope` annotation to set bean scope at a class level. 
+To set bean scope dynamically, define `public BeanScope scope()` method.
 
 ### Foreign beans
 Foreign bean is a bean object that is loaded on a node other than internal node that owns bean's vbucket.
