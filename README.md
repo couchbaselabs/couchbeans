@@ -4,8 +4,10 @@
 Distributed reactive jvm environment with couchbase backend that turns couchbase buckets into self-mutating graph databases using java class structures as graph definitions.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
+# Example graph application structure
+![Couchbeans graph events flow(5)](https://user-images.githubusercontent.com/807041/186948330-7aab8192-a2df-46a8-b228-9d6ce3f5c24d.png)
+
 # (Very) Loose descripion of how this would work:
-![Couchbeans graph events flow(4)](https://user-images.githubusercontent.com/807041/186480114-76e69b37-fd7c-45e8-a865-c994967397c3.png)
 
 ## Uploading bean definitions
 ### Via CLI
