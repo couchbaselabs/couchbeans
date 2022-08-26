@@ -109,5 +109,5 @@ To avoid running setter logic on foreign beans, all bean setters are instrumente
 ## Indexes
 ![Screenshot from 2022-08-26 12-59-54](https://user-images.githubusercontent.com/807041/186955549-8e2b7f95-4284-4fdb-885e-b545c77576fe.png)
 
-Couchbeans create primary indexes automatically.
+Couchbeans creates primary indexes automatically.
 To create secondary index on bean fields, use `@Index` annotation.
