@@ -78,35 +78,7 @@ public class BeanUploader {
         Arrays.stream(sources)
                 .map(Path::of)
                 .flatMap(path -> processPath(cp, path).stream())
-                .forEach(ci -> {
-                    try {
-                        Class type = Couchbeans.getBeanType(ci.className()).orElseGet(() ->
-                        {
-                            try {
-                                return cp.get(ci.className()).toClass(CouchbaseClassLoader.INSTANCE, null);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-                        if (ci.scope() == BeanScope.GLOBAL) {
-                                Object bean = type.getConstructor().newInstance();
-                                System.out.println("Creating singleton for bean " + ci.className());
-                                Singleton singleton = new Singleton(ci.className());
-                                if (Boolean.getBoolean(Utils.envOrDefault("CBB_REINITIALIZE", "false").toLowerCase())) {
-                                    Couchbeans.store(singleton);
-                                    System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
-                                } else if (Couchbeans.storeIfNotExists(singleton)) {
-                                    System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
-                                }
-                        } else if (ci.scope() == BeanScope.BUCKET) {
-                            Utils.ensureCollectionExists(type);
-                        }
-                    } catch (Exception e) {
-                        RuntimeException re = new RuntimeException("Failed to initialize", e);
-                        BeanException.report(ci, re);
-                        re.printStackTrace();
-                    }
-                });
+                .forEach(ci -> System.out.println(String.format("Successfully uploaded type '%s'", ci.className())));
     }
 
     private static List<ClassInfo> processPath(ClassPool cp, Path path) {
@@ -134,7 +106,7 @@ public class BeanUploader {
         List<ClassInfo> result = new ArrayList<>();
         while ((entry = zis.getNextEntry()) != null) {
             if (!entry.isDirectory()) {
-                if (entry.getName().endsWith(".class") && !entry.getName().contains("$")) {
+                if (entry.getName().endsWith(".class")) {
                     result.add(processClass(cp, zis));
                 } else if (entry.getName().endsWith(".jar")) {
                     processZipStream(cp, zis);
@@ -191,18 +163,38 @@ public class BeanUploader {
                 });
 
         Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME)
-            .upsert(name, ctClass.toBytecode(), UpsertOptions.upsertOptions().transcoder(RawBinaryTranscoder.INSTANCE));
+                .upsert(name, ctClass.toBytecode(), UpsertOptions.upsertOptions().transcoder(RawBinaryTranscoder.INSTANCE));
         ClassInfo ci = new ClassInfo(ctClass);
         Couchbeans.store(ci);
 
-        Class.forName(ci.className(), false, CouchbaseClassLoader.INSTANCE);
+        Class type = Class.forName(ci.className(), false, CouchbaseClassLoader.INSTANCE);
 
+        try {
+            if (ci.beanScope() == BeanScope.GLOBAL) {
+                System.out.println("Creating singleton for bean " + ci.className());
+                Singleton singleton = new Singleton(ci.className());
+                if (Boolean.parseBoolean(Utils.envOrDefault("CBB_REINITIALIZE", "false").toLowerCase())) {
+                    Couchbeans.OWNED.put(singleton, null);
+                    Couchbeans.store(singleton);
+                    System.out.println(String.format("Re-Initialized %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
+                } else if (Couchbeans.storeIfNotExists(singleton)) {
+                    System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
+                }
+            } else if (ci.beanScope() == BeanScope.BUCKET || ci.beanScope() == BeanScope.NODE) {
+                Utils.ensureCollectionExists(type);
+            }
+        } catch (Exception e) {
+            RuntimeException re = new RuntimeException("Failed to initialize", e);
+            BeanException.report(ci, re);
+            re.printStackTrace();
+        }
         return ci;
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, Object value) {
         return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
+
     public static boolean interceptSetterWrapped(Object bean, String fieldName, Object... value) {
         if (Couchbeans.owned(bean)) {
             return false;
@@ -345,34 +337,34 @@ public class BeanUploader {
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, boolean value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, char value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, byte value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, short value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, int value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, long value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, float value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, double value) {
-        return interceptSetterWrapped(bean, fieldName, new Object[] {value});
+        return interceptSetterWrapped(bean, fieldName, new Object[]{value});
     }
 }

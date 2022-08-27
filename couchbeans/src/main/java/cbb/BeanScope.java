@@ -9,9 +9,11 @@ public enum BeanScope {
     MEMORY, BUCKET, NODE(true), GLOBAL(true);
 
     private final boolean isAutoCreated;
+
     BeanScope() {
         isAutoCreated = false;
     }
+
     BeanScope(boolean isAutoCreated) {
         this.isAutoCreated = isAutoCreated;
     }
@@ -19,13 +21,16 @@ public enum BeanScope {
     public boolean isAutoCreated() {
         return isAutoCreated;
     }
+
     public static BeanScope get(Class<?> from) {
         return (from.isAnnotationPresent(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() :
                 from.getCanonicalName().contains("$") ? BeanScope.MEMORY : BeanScope.BUCKET;
     }
+
     public static BeanScope get(CtClass from) {
         try {
-            return (from.hasAnnotation(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() : BeanScope.BUCKET;
+            return (from.hasAnnotation(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() :
+                    from.getName().contains("$") ? BeanScope.MEMORY : BeanScope.BUCKET;
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

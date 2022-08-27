@@ -1,6 +1,7 @@
 package cbb;
 
 import com.couchbase.client.core.cnc.EventBus;
+import com.couchbase.client.core.error.UnambiguousTimeoutException;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.ClusterOptions;
@@ -220,7 +221,12 @@ public class Couchbeans {
     }
 
     private static boolean exists(Class<?> type, String key) {
-        return SCOPE.collection(Utils.collectionName(type)).exists(key).exists();
+        try {
+            return SCOPE.collection(Utils.collectionName(type)).exists(key).exists();
+        } catch (UnambiguousTimeoutException ute) {
+            // no collection?
+            return false;
+        }
     }
 
     public static Optional<BeanLink> getLink(String s) {
@@ -230,7 +236,7 @@ public class Couchbeans {
     public static Optional<Class> getBeanType(String name) {
         try {
             return Optional.of(Class.forName(name, true, CouchbaseClassLoader.INSTANCE));
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
             return Optional.empty();
         }
     }

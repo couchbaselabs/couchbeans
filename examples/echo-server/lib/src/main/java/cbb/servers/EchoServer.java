@@ -7,7 +7,6 @@ import cbb.BeanException;
 import cbb.BeanScope;
 import cbb.Couchbeans;
 import cbb.annotations.Scope;
-import cbb.annotations.TargetNodes;
 import cbb.requests.EchoRequest;
 
 import java.io.BufferedReader;
@@ -17,7 +16,7 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-@Scope(BeanScope.NODE)
+@Scope(BeanScope.GLOBAL)
 public class EchoServer {
     private boolean running;
     private short port = 9000;
@@ -55,6 +54,7 @@ public class EchoServer {
     }
 
     private void whenRunning() {
+        System.out.println("whenRunning");
         if (serverThread == null || !serverThread.isAlive()) {
             serverThread = new ServerThread();
             serverThread.start();
@@ -62,6 +62,7 @@ public class EchoServer {
     }
 
     private void whenNotRunning() {
+        System.out.println("whenNotRunning");
         serverThread.interrupt();
     }
 }

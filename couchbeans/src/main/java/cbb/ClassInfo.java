@@ -1,6 +1,5 @@
 package cbb;
 
-import cbb.annotations.Scope;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
 import javassist.CtClass;
@@ -9,7 +8,7 @@ public class ClassInfo {
     public static final String COLLECTION = Utils.collectionName(ClassInfo.class);
     private String className;
 
-    private BeanScope scope;
+    private BeanScope beanScope;
 
     public ClassInfo() {
 
@@ -17,12 +16,12 @@ public class ClassInfo {
 
     public ClassInfo(Class from) {
         this.className = from.getCanonicalName();
-        this.scope = BeanScope.get(from);
+        this.beanScope = BeanScope.get(from);
     }
 
     public ClassInfo(CtClass from) {
         this.className = from.getName();
-        this.scope = BeanScope.get(from);
+        this.beanScope = BeanScope.get(from);
     }
 
     public void className(String name) {
@@ -33,12 +32,12 @@ public class ClassInfo {
         return className;
     }
 
-    public void scope(BeanScope scope) {
-        this.scope = scope;
+    public void beanScope(BeanScope scope) {
+        this.beanScope = scope;
     }
 
-    public BeanScope scope() {
-        return scope;
+    public BeanScope beanScope() {
+        return beanScope;
     }
 
     public String naturalKey() {

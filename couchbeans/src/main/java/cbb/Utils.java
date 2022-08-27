@@ -1,6 +1,7 @@
 package cbb;
 
 import cbb.annotations.Scope;
+import com.couchbase.client.dcp.deps.io.netty.handler.codec.serialization.ObjectEncoder;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
@@ -13,7 +14,7 @@ import cbb.annotations.Index;
 import javassist.CtClass;
 import javassist.CtField;
 import javassist.NotFoundException;
-import org.gradle.internal.impldep.org.codehaus.plexus.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -220,7 +221,7 @@ public class Utils {
     public static Stream<BeanMethod.Arguments> matchConstructors(Object[] path, String[] exclude) {
         return Couchbeans.SCOPE.query(
                         String.format("SELECT * FROM %s WHERE `name` = '<init>' AND META().id NOT IN $1", collectionRef(collectionName(BeanMethod.class))),
-                        QueryOptions.queryOptions().parameters(JsonArray.from(exclude))
+                        QueryOptions.queryOptions().parameters(JsonArray.from((Object) exclude))
                 ).rowsAs(BeanMethod.class).stream()
                 .map(constructor -> {
                     List<Object> arguments = matchMethod(constructor, path);
@@ -560,6 +561,7 @@ public class Utils {
                                 if (callSetters) {
                                     setFieldValueUsingMethods(bean, field, value);
                                 } else {
+                                    setFieldValue(bean, field, value);
                                     invokeValueHandler(bean, field, value);
                                 }
                             }
@@ -620,29 +622,41 @@ public class Utils {
     }
 
     public static void invokeValueHandler(Object bean, Field field, Object value) {
-        String svalue = StringUtils.capitalise(String.valueOf(value));
-        String fname = StringUtils.capitalise(field.getName());
-        try {
-            String hname;
-            if (field.getType() == Boolean.class) {
-                hname = String.format("when%s%s", Boolean.TRUE.equals(value) ? "" : "Not", fname);
-            } else {
-                hname = String.format("when%sIs%s", fname, svalue);
-            }
+        String svalue = StringUtils.capitalize(String.valueOf(value));
+        String fname = StringUtils.capitalize(field.getName());
+        String hname;
+        Class fieldType = field.getType();
+        if (fieldType == Boolean.class || fieldType == boolean.class) {
+            hname = String.format("when%s%s", Boolean.TRUE.equals(value) ? "" : "Not", fname);
+        } else {
+            hname = String.format("when%sIs%s", fname, svalue);
+        }
 
-            Method handler = bean.getClass().getMethod(hname);
+        Utils.getMethod(bean.getClass(), hname).ifPresent(handler -> {
             handler.setAccessible(true);
-            handler.invoke(bean);
-        } catch (InvocationTargetException e) {
-            BeanException.report(bean, e);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
+            try {
+                handler.invoke(bean);
+            } catch (Exception e) {
+                BeanException.report(bean, e);
+            }
+        });
+    }
 
+    private static Optional<Method> getMethod(Class<?> aClass, String name) {
+        try {
+            return Optional.of(aClass.getDeclaredMethod(name));
+        } catch (NoSuchMethodException e) {
+            Class sup = aClass.getSuperclass();
+            if (sup != Object.class) {
+                return getMethod(sup, name);
+            }
+            return Optional.empty();
         }
     }
 
     public static List<Singleton> getAllSingletons() {
         return Couchbeans.SCOPE.query(
-                String.format("SELECT * FROM %s", collectionRef(collectionName(Singleton.class)))
+                String.format("SELECT RAW `%s` FROM %s", collectionName(Singleton.class), collectionRef(collectionName(Singleton.class)))
         ).rowsAs(Singleton.class);
     }
 }

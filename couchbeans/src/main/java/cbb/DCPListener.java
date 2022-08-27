@@ -44,7 +44,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
 
         CLIENT.connect().block();
         System.out.println("DCP client connected.");
-        CLIENT.initializeState(StreamFrom.BEGINNING, StreamTo.INFINITY).block();
+        CLIENT.initializeState(StreamFrom.NOW, StreamTo.INFINITY).block();
         System.out.println("Starting the stream...");
         CLIENT.startStreaming().block();
         System.out.println("Started the stream.");
@@ -108,7 +108,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         try {
             if (targetClass.getPackageName().startsWith("cbb")) {
                 if (Singleton.class == targetClass) {
-                    Singleton target = Singleton.get(targetType);
+                    Singleton target = Singleton.get(ckey.key());
                     target.update(MessageUtil.getContentAsString(event));
                 }
             } else if (targetClass.getPackageName().startsWith("java")) {

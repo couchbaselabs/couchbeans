@@ -1,5 +1,6 @@
 package cbb;
 
+import com.couchbase.client.java.json.JsonObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.Collections;
@@ -12,7 +13,7 @@ public class Singleton {
     private transient Object instance;
 
     private final static Map<String, Singleton> INSTANCES = Collections.synchronizedMap(new HashMap<>());
-    private transient String beanType;
+    private String beanType;
 
     public Singleton() {
 
@@ -20,6 +21,7 @@ public class Singleton {
 
     public Singleton(String beanType) {
         this.beanType = beanType;
+        this.source = "{}";
         INSTANCES.put(beanType, this);
     }
 
@@ -29,16 +31,8 @@ public class Singleton {
 
     public Object get() {
         if (instance == null) {
-            try {
-                if (source == null) {
-                    instance = Couchbeans.create(beanType);
-                    source = Utils.MAPPER.writeValueAsString(instance);
-                } else {
-                    instance = Utils.MAPPER.readValue(source, Couchbeans.getBeanType(beanType).orElseThrow());
-                }
-            } catch (JsonProcessingException e) {
-                BeanException.reportAndThrow(this, e);
-            }
+            instance = Couchbeans.create(beanType);
+            Utils.updateBean(instance, "{}", source,true);
         }
         return instance;
     }
@@ -51,16 +45,25 @@ public class Singleton {
     }
 
     public Object update(String source) throws JsonProcessingException {
+        JsonObject parsed = JsonObject.fromJson(source);
         Object bean = get();
-        Utils.updateBean(bean, this.source, source, true);
+        Utils.updateBean(bean, this.source, parsed.getString(source), true);
         this.source = source;
         return bean;
     }
     public static void initializeNode() {
-        Utils.getAllSingletons().forEach(singleton -> INSTANCES.put(singleton.beanType(), singleton));
+        Utils.getAllSingletons().forEach(singleton -> {
+            System.out.println(String.format("Initializing singleton: %s", singleton.getClass().getCanonicalName()));
+            singleton.get();
+            INSTANCES.put(singleton.beanType(), singleton);
+        });
     }
 
     private String beanType() {
         return beanType;
+    }
+
+    public String getSource() {
+        return source;
     }
 }
