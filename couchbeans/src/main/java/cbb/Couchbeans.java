@@ -33,7 +33,6 @@ public class Couchbeans {
     public static final String CBB_SCOPE = Utils.envOrDefault("CBB_SCOPE", "_default");
     public static final String CBB_CLUSTER = Utils.envOrDefault("CBB_CLUSTER", "couchbase://localhost");
     public static final String CBB_USERNAME = Utils.envOrDefault("CBB_USERNAME", "Administrator");
-    public static final String CBB_PASSWORD = Utils.envOrDefault("CBB_PASSWORD", "password");
 
     public static final EventBus EVENT_BUS;
 
@@ -58,7 +57,7 @@ public class Couchbeans {
 
         CLUSTER = Cluster.connect(
                 CBB_CLUSTER,
-                ClusterOptions.clusterOptions(CBB_USERNAME, CBB_PASSWORD).environment(ClusterEnvironment.builder().jsonSerializer(
+                ClusterOptions.clusterOptions(CBB_USERNAME, Utils.envOrDefault("CBB_PASSWORD", "password")).environment(ClusterEnvironment.builder().jsonSerializer(
                         JacksonJsonSerializer.create(Utils.MAPPER)
                 ).build())
         );

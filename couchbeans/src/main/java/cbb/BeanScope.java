@@ -20,7 +20,8 @@ public enum BeanScope {
         return isAutoCreated;
     }
     public static BeanScope get(Class<?> from) {
-        return (from.isAnnotationPresent(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() : BeanScope.BUCKET;
+        return (from.isAnnotationPresent(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() :
+                from.getCanonicalName().contains("$") ? BeanScope.MEMORY : BeanScope.BUCKET;
     }
     public static BeanScope get(CtClass from) {
         try {

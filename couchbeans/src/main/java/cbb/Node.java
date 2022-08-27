@@ -14,9 +14,17 @@ import java.util.List;
 public class Node {
     private final String name;
     private final String clusterUsername = Couchbeans.CBB_USERNAME;
+    private String clusterPassword;
 
     private final boolean dcpClient = DCPListener.RUNNING.get();
     private final String[] tags = Utils.env("CBB_NODE_TAGS")
+            .stream()
+            .flatMap(v -> Arrays.stream(v.split(",")))
+            .map(String::trim)
+            .filter(StringUtils::isNotBlank)
+            .map(String::toLowerCase)
+            .toArray(String[]::new);
+    private final String[] ignoredPackages = Utils.env("CBB_NODE_IGNORE_PACKAGES")
             .stream()
             .flatMap(v -> Arrays.stream(v.split(",")))
             .map(String::trim)
@@ -49,6 +57,9 @@ public class Node {
                 return this.ips[0];
             }
 
+            if (!dcpClient) {
+                return String.format("%s_%d", System.getProperty("program.name"), ProcessHandle.current().pid());
+            }
             throw new RuntimeException("Failed to set node name from `CBB_NODE_NAME`, `HOSTNAME` env vars or a single non-local network interface");
         }));
     }
@@ -81,5 +92,13 @@ public class Node {
     public void sendHeartbeat() {
         this.lastBeat = System.currentTimeMillis();
         Couchbeans.store(this);
+    }
+
+    public String[] getTags() {
+       return tags;
+    }
+
+    public String[] getIgnoredPackages() {
+        return ignoredPackages;
     }
 }

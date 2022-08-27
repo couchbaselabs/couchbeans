@@ -116,13 +116,12 @@ public class BeanUploader {
                 return processDirectory(cp, path);
             } else if (path.toString().endsWith(".jar")) {
                 return processJar(cp, path);
-            } else if (!path.toString().contains("$")){
+            } else {
                 return Arrays.asList(processFile(cp, path));
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return Collections.EMPTY_LIST;
     }
 
     private static List<ClassInfo> processJar(ClassPool cp, Path path) throws Exception {

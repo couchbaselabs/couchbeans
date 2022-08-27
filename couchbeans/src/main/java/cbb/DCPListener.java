@@ -19,20 +19,22 @@ import java.util.stream.Stream;
 
 public class DCPListener implements DataEventHandler, ControlEventHandler {
 
-    private static final DCPListener INSTANCE = new DCPListener();
+    private static DCPListener INSTANCE;
     private static final Logger LOGGER = LoggerFactory.getLogger(DCPListener.class);
 
     public static final AtomicBoolean RUNNING = new AtomicBoolean(false);
 
-    private static final Client CLIENT = Client.builder()
-            .collectionsAware(true)
-            .connectionString(Couchbeans.CBB_CLUSTER)
-            .credentials(Couchbeans.CBB_USERNAME, Couchbeans.CBB_PASSWORD)
-            .bucket(Couchbeans.CBB_BUCKET)
-            .scopeName(Couchbeans.CBB_SCOPE)
-            .build();
+    private static Client CLIENT;
 
     public static void main(String... args) {
+        INSTANCE = new DCPListener();
+        CLIENT = Client.builder()
+                .collectionsAware(true)
+                .connectionString(Couchbeans.CBB_CLUSTER)
+                .credentials(Couchbeans.CBB_USERNAME, Utils.envOrDefault("CBB_PASSWORD", "password"))
+                .bucket(Couchbeans.CBB_BUCKET)
+                .scopeName(Couchbeans.CBB_SCOPE)
+                .build();
         RUNNING.set(true);
         Couchbeans.NODE.setRunning(true);
         Singleton.initializeNode();

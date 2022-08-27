@@ -7,6 +7,7 @@ import cbb.BeanException;
 import cbb.BeanScope;
 import cbb.Couchbeans;
 import cbb.annotations.Scope;
+import cbb.annotations.TargetNodes;
 import cbb.requests.EchoRequest;
 
 import java.io.BufferedReader;
@@ -16,7 +17,7 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-@Scope(BeanScope.EXTERNAL)
+@Scope(BeanScope.NODE)
 public class EchoServer {
     private boolean running;
     private short port = 9000;

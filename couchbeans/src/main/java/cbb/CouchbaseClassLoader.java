@@ -1,5 +1,6 @@
 package cbb;
 
+import com.couchbase.client.core.error.DocumentNotFoundException;
 import com.couchbase.client.java.kv.GetResult;
 
 public class CouchbaseClassLoader extends ClassLoader {
@@ -27,9 +28,13 @@ public class CouchbaseClassLoader extends ClassLoader {
     }
 
     private byte[] loadClassData(String name) {
-        GetResult data = Couchbeans.SCOPE.collection(Utils.collectionName(Class.class)).get(name);
-        if (data != null) {
-            return data.contentAsBytes();
+        try {
+            GetResult data = Couchbeans.SCOPE.collection(Utils.collectionName(Class.class)).get(name);
+            if (data != null) {
+                return data.contentAsBytes();
+            }
+        } catch (DocumentNotFoundException dnfe) {
+            // noop
         }
         return null;
     }
