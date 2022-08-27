@@ -62,11 +62,7 @@ public class EchoServer {
      * CBB will call it when the corresponding field (running) is set to TRUE on an instance of the bean
      */
     private void whenRunning() {
-        System.out.println("whenRunning");
-        if (serverThread == null || !serverThread.isAlive()) {
-            serverThread = new ServerThread();
-            serverThread.start();
-        }
+        start();
     }
 
     /**
@@ -74,7 +70,28 @@ public class EchoServer {
      * CBB will call it when the corresponding field (running) is set to FALSE on an instance of the bean
      */
     private void whenNotRunning() {
-        System.out.println("whenNotRunning");
+        stop();
+    }
+
+    public void setPort(short port) {
+        this.port = port;
+    }
+
+    private void restart() {
+        stop();
+        start();
+    }
+
+    private void start() {
+        System.out.println("Starting the echo server...");
+        if (serverThread == null || !serverThread.isAlive()) {
+            serverThread = new ServerThread();
+            serverThread.start();
+        }
+    }
+
+    private void stop() {
+        System.out.println("Stopping the echo server...");
         serverThread.interrupt();
     }
 }
