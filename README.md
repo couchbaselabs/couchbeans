@@ -4,9 +4,14 @@
 Distributed reactive jvm environment with couchbase backend that turns couchbase buckets into self-mutating graph databases using java class structures as graph definitions.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
-# Example graph application structure
-![Couchbeans graph events flow(6)](https://user-images.githubusercontent.com/807041/186948772-f986e6a7-3f86-4544-9dee-a92fa9fb3492.png)
-
+# Examples
+## Echo server
+Check out the `echo-server` example in the `examples` directory. 
+When uploaded to a CBB cluster, the `EchoServer` global bean will wait for its `running` field to be set to `true` and then it will open an ICMP echo server on port `port` which will register all recieved requests as `EchoRequest` beans linked to the `EchoServer` bean.
+## Chat server
+Under development
+## Grapql server
+Under development
 
 # (Very) Loose descripion of how this would work:
 ## Document mapping
