@@ -23,9 +23,9 @@ When processing a DCP message:
  - `set<Fieldname>(<fieldtype>)`
 - depending on the field value type, couchbase will also invoke value handler methods that match these rules:
  - For boolean:
-  - when `true`: `when<Field>()`
-  - when `false`: `whenNot<Field>()`
- - for any other type: `when<Field>Is<Value>()` (i.g.: `whenCounterIs0()`)
+   - when `true`: `when<Field>()`
+   - when `false`: `whenNot<Field>()`
+  - for any other type: `when<Field>Is<Value>()` (i.g.: `whenCounterIs0()`)
 
 > would be nice to implement more complicated matching like `whenCounterIsAbove10`, `whenCounterIsNot0`, etc...
 
