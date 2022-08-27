@@ -22,7 +22,6 @@ public class BeanInfo {
     private long revision;
     private String beanKey;
     private String beanType;
-    private Set<String> parentBeans;
     private String lastAppliedSource;
 
     public BeanInfo() {
@@ -89,30 +88,8 @@ public class BeanInfo {
             lastAppliedSource = source;
             return Utils.MAPPER.readValue(source, type);
         } else {
-            Map<String, Object> oldValues = JsonObject.fromJson(lastAppliedSource).toMap();
-            Map<String, Object> newValues = JsonObject.fromJson(source).toMap();
-            Object clone = Utils.MAPPER.readValue(source, type);
             Object result = Utils.MAPPER.readValue(lastAppliedSource, type);
-            Streams.concat(oldValues.keySet().stream(), newValues.keySet().stream())
-                    .distinct()
-                    .filter(key ->
-                            newValues.containsKey(key) != oldValues.containsKey(key) ||
-                            !Objects.equals(newValues.get(key), oldValues.get(key))
-                    )
-                    .forEach(key -> {
-                        Utils.getSetter(type, key).ifPresent(setter -> {
-                            try {
-                                Field f = type.getField(key);
-                                setter.invoke(result, f.get(clone));
-                            } catch (NoSuchFieldException e) {
-                                throw new RuntimeException(e);
-                            } catch (InvocationTargetException e) {
-                                throw new RuntimeException(e);
-                            } catch (IllegalAccessException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-                    });
+            Utils.updateBean(result, lastAppliedSource, source);
             Couchbeans.KEY.put(result, beanKey);
             return result;
         }

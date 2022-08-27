@@ -15,13 +15,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+@cbb.annotations.Scope(BeanScope.GLOBAL)
 public class Couchbeans {
     public static final Cluster CLUSTER;
     public static final Bucket BUCKET;
@@ -35,11 +37,19 @@ public class Couchbeans {
     public static final EventBus EVENT_BUS;
 
     public static final JsonSerializer SERIALIZER;
+    public static final Node NODE = new Node();
 
     protected static final Map<Class, Map<String, Object>> LOCAL_BEANS = Collections.synchronizedMap(new HashMap<>());
     protected static final Map<Class, Map<String, Object>> GLOBAL_BEANS = Collections.synchronizedMap(new HashMap<>());
     protected static final Map<Object, Void> OWNED = Collections.synchronizedMap(new WeakHashMap<>());
     protected static final Map<Object, String> KEY = Collections.synchronizedMap(new WeakHashMap<>());
+
+    // membeans :)
+    protected static final Map<Class, Map<String, Object>> MEMBEANS = Collections.synchronizedMap(new HashMap<>());
+
+    // index by class name then by bean key then by other bean type and finally by link id
+    protected static final Map<String, Map<String, Map<String, Set<String>>>> LINK_INDEX = Collections.synchronizedMap(new HashMap<>());
+    protected static final Map<String, Map<String, Map<String, Set<String>>>> REVERSE_LINK_INDEX = Collections.synchronizedMap(new HashMap<>());
 
     static {
         Utils.MAPPER.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
@@ -58,6 +68,9 @@ public class Couchbeans {
     }
 
     public static <T> Optional<T> get(Class<T> type, String id) {
+        if (MEMBEANS.containsKey(type) && MEMBEANS.get(type).containsKey(id)) {
+            return Optional.of((T) MEMBEANS.get(type).get(id));
+        }
         return Utils.fetchObject(type, id);
     }
 
@@ -69,7 +82,7 @@ public class Couchbeans {
                 .findFirst();
     }
 
-    public static <T> Stream<T> allLinked(Object bean, Class<T> type) {
+    public static <T> Stream<T> allChildren(Object bean, Class<T> type) {
         return Utils.children(bean, type)
                 .stream()
                 .map(type::cast);
@@ -102,24 +115,65 @@ public class Couchbeans {
 
     public static String store(Object bean) {
         String key = key(bean);
-        Utils.ensureCollectionExists(bean.getClass());
-        SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key, bean);
+        Class beanType = bean.getClass();
+        if (BeanScope.get(bean) == BeanScope.MEMORY) {
+            if (beanType == BeanLink.class) {
+                // update the indexes
+                BeanLink link = (BeanLink) bean;
+                updateLinkIndex(LINK_INDEX, link.sourceType(), link.sourceKey(), link.targetType(), key);
+                updateLinkIndex(REVERSE_LINK_INDEX, link.targetType(), link.targetKey(), link.sourceType(), key);
+            }
+            if (!MEMBEANS.containsKey(beanType)) {
+                MEMBEANS.put(beanType, Collections.synchronizedMap(new WeakHashMap<>()));
+            }
+            MEMBEANS.get(beanType).put(key, bean);
+        } else {
+            Utils.ensureCollectionExists(bean.getClass());
+            SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key, bean);
+        }
         return key;
     }
 
-    public static CompletableFuture<Void> delete(Object bean) {
-        return CompletableFuture.supplyAsync(() -> {
-            SCOPE.collection(Utils.collectionName(bean.getClass())).remove(key(bean));
-            return null;
-        });
+    private static void updateLinkIndex(Map<String, Map<String, Map<String, Set<String>>>> index, String type, String key, String otherType, String linkKey) {
+        if (!index.containsKey(type)) {
+            index.put(type, Collections.synchronizedMap(new HashMap<>()));
+        }
+        {
+            Map<String, Map<String, Set<String>>> subIndex = index.get(type);
+            if (!subIndex.containsKey(key)) {
+                subIndex.put(key, Collections.synchronizedMap(new HashMap<>()));
+            }
+        }
+        {
+            Map<String, Set<String>> subIndex = index.get(type).get(key);
+            if (!subIndex.containsKey(otherType)) {
+                subIndex.put(otherType, Collections.synchronizedSet(new HashSet<>()));
+            }
+            subIndex.get(otherType).add(linkKey);
+        }
     }
 
-    public static <S, T> CompletableFuture<BeanLink<S, T>> link(S source, T target) {
-        return CompletableFuture.supplyAsync(() -> Utils.linkBetween(source, target).orElseGet(() -> {
+    public static void delete(Object bean) {
+        String key = key(bean);
+        Utils.allChildLinks(bean).forEach(Couchbeans::delete);
+        Utils.allParentLinks(bean).forEach(Couchbeans::delete);
+
+        if (BeanScope.get(bean) == BeanScope.MEMORY) {
+            Class beanType = bean.getClass();
+            if (MEMBEANS.containsKey(beanType)) {
+                MEMBEANS.get(beanType).remove(key);
+            }
+        } else {
+            SCOPE.collection(Utils.collectionName(bean.getClass())).remove(key(bean));
+        }
+    }
+
+    public static <S, T> BeanLink<S, T> link(S source, T target) {
+        return Utils.linkBetween(source, target).orElseGet(() -> {
             BeanLink<S, T> result = new BeanLink<S, T>(source, target);
             store(result);
             return result;
-        }));
+        });
     }
 
     public static String ref(Object bean) {
@@ -135,5 +189,44 @@ public class Couchbeans {
                     .stream()
                     .findFirst()
                     .map(l -> (T) l.target());
+    }
+
+    public static boolean storeIfNotExists(Singleton singleton) {
+        String key = Couchbeans.key(singleton);
+        if (!exists(Singleton.class, key)) {
+            store(singleton);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean exists(Class<?> type, String key) {
+        return SCOPE.collection(Utils.collectionName(type)).exists(key).exists();
+    }
+
+    public static Optional<BeanLink> getLink(String s) {
+        return get(BeanLink.class, s);
+    }
+
+    public static Optional<Class> getBeanType(String name) {
+        try {
+            return Optional.of(Class.forName(name,true, CouchbaseClassLoader.INSTANCE));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static <T> Optional<T> get(String targetType, String targetKey) {
+        return get(Couchbeans.getBeanType(targetType).orElseThrow(), targetKey);
+    }
+
+    public static Object create(String beanType) {
+        try {
+            Object bean = getBeanType(beanType).orElseThrow().getConstructor().newInstance();
+            key(bean);
+            return bean;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

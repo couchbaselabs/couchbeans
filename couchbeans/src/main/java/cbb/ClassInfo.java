@@ -5,8 +5,6 @@ import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
 import javassist.CtClass;
 
-import java.util.stream.Stream;
-
 public class ClassInfo {
     public static final String COLLECTION = Utils.collectionName(ClassInfo.class);
     private String className;
@@ -19,16 +17,12 @@ public class ClassInfo {
 
     public ClassInfo(Class from) {
         this.className = from.getCanonicalName();
-        this.scope = (from.isAnnotationPresent(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() : BeanScope.NORMAL;
+        this.scope = BeanScope.get(from);
     }
 
     public ClassInfo(CtClass from) {
-        try {
-            this.className = from.getName();
-            this.scope = (from.hasAnnotation(Scope.class)) ? ((Scope)from.getAnnotation(Scope.class)).value() : BeanScope.NORMAL;
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+        this.className = from.getName();
+        this.scope = BeanScope.get(from);
     }
 
     public void className(String name) {

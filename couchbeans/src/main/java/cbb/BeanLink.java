@@ -1,5 +1,7 @@
 package cbb;
 
+import net.rubygrapefruit.platform.memory.Memory;
+import org.gradle.cache.ManualEvictionInMemoryCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,10 +19,19 @@ public class BeanLink<S, T> {
     }
 
     public BeanLink(S source, T target) {
-        this.sourceType = source.getClass().getCanonicalName();
-        this.sourceKey = Couchbeans.key(source);
-        this.targetType = target.getClass().getCanonicalName();
-        this.targetKey = Couchbeans.key(target);
+        this(
+                source.getClass().getCanonicalName(),
+                Couchbeans.key(source),
+                target.getClass().getCanonicalName(),
+                Couchbeans.key(target)
+        );
+    }
+
+    public BeanLink(String sourceType, String sourceKey, String targetType, String targetKey) {
+        this.sourceType = sourceType;
+        this.sourceKey = sourceKey;
+        this.targetType = targetType;
+        this.targetKey = targetKey;
     }
 
     public String sourceType() {
@@ -41,7 +52,7 @@ public class BeanLink<S, T> {
 
     public Optional<T> target() {
         try {
-            return Couchbeans.get((Class<T>) Class.forName(targetType), targetKey);
+            return Couchbeans.get(targetType, targetKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + targetKey + "' of type '" + targetType + "'", e);
             BeanException.report(this, e);
@@ -51,11 +62,16 @@ public class BeanLink<S, T> {
 
     public Optional<S> source() {
         try {
-            return Couchbeans.get((Class<S>)Class.forName(sourceType), sourceKey);
+            return Couchbeans.get((Class<S>) Class.forName(sourceType), sourceKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + sourceKey + "' of type '" + sourceType + "'", e);
             BeanException.report(this, e);
             return Optional.empty();
         }
     }
+
+    public BeanScope scope() {
+        return BeanScope.get(sourceType) == BeanScope.MEMORY || BeanScope.get(targetType) == BeanScope.MEMORY ? BeanScope.MEMORY : BeanScope.BUCKET;
+    }
+
 }

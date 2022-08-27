@@ -3,7 +3,9 @@ package cbb;
 import cbb.annotations.Scope;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonArray;
+import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Streams;
 import cbb.annotations.Index;
@@ -14,8 +16,8 @@ import javassist.NotFoundException;
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,12 +34,20 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Utils {
+    public final static String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+    protected static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Map<String, String> ENV = new HashMap<>(System.getenv());
+
     public static String collectionName(Class from) {
-        return from.getCanonicalName().replaceAll("\\.", "-");
+        return collectionName(from.getCanonicalName());
     }
 
-    public static Class collectionClass(String collectionName) throws ClassNotFoundException {
-        return Class.forName(collectionName.replaceAll("-", "."), true, CouchbaseClassLoader.INSTANCE);
+    public static Optional<Class> collectionClass(String collectionName) {
+        return Couchbeans.getBeanType(collectionName.replaceAll("-", "."));
+    }
+
+    public static String collectionName(String typeName) {
+        return typeName.replaceAll("\\.", "-");
     }
 
     public static String collectionRef(String collection) {
@@ -81,8 +91,6 @@ public class Utils {
         ));
     }
 
-    private static final Map<String, String> ENV = new HashMap<>(System.getenv());
-
     public static void envOverride(String name, String value) {
         ENV.put(name, value);
     }
@@ -92,20 +100,26 @@ public class Utils {
     }
 
     public static List<BeanLink> children(Object source) {
-        String sourceKey = Couchbeans.KEY.get(source);
-        if (sourceKey == null) {
-            throw new IllegalArgumentException("Unknown bean: " + source);
-        }
+        String sourceType = source.getClass().getCanonicalName();
+        String sourceKey = Couchbeans.key(source);
 
-        return Couchbeans.SCOPE.query(
+        List<BeanLink> result = Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2",
                         collectionRef(collectionName(source.getClass()))
                 ),
                 QueryOptions.queryOptions().parameters(JsonArray.from(
-                        source.getClass().getCanonicalName(),
+                        sourceType,
                         sourceKey
                 ))
         ).rowsAs(BeanLink.class);
+
+        allMemLinkKeys(sourceType, sourceKey, Couchbeans.LINK_INDEX)
+                .map(lk -> Couchbeans.get(BeanLink.class, lk))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(result::add);
+
+        return result;
     }
 
     public static <S> List<BeanLink> parents(S source) {
@@ -121,7 +135,7 @@ public class Utils {
     }
 
     public static <S, T> List<BeanLink<S, T>> parents(S source, Class<T> type) {
-        return Couchbeans.SCOPE.query(
+        List<BeanLink<S, T>> result = Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2 AND sourceType = $3",
                         collectionRef(collectionName(source.getClass()))
                 ),
@@ -131,12 +145,19 @@ public class Utils {
                         type.getCanonicalName()
                 ))
         ).rowsAs((Class<BeanLink<S, T>>) (Class<?>) BeanLink.class);
-    }
 
+        allMemLinkKeys(source.getClass().getCanonicalName(), type.getCanonicalName(), Couchbeans.REVERSE_LINK_INDEX)
+                .map(k -> Couchbeans.get(BeanLink.class, k))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(l -> (BeanLink<S, T>) l)
+                .forEach(result::add);
+        return result;
+    }
 
     public static <S, T> List<BeanLink<S, T>> children(Class<S> beanType, String sourceKey, Class<T> target) {
         Class<BeanLink<S, T>> linkType = (Class<BeanLink<S, T>>) (Class<?>) BeanLink.class;
-        return (List<BeanLink<S, T>>) Couchbeans.SCOPE.query(
+        List<BeanLink<S, T>> result = (List<BeanLink<S, T>>) Couchbeans.SCOPE.query(
                 String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3",
                         collectionRef(collectionName(BeanLink.class))
                 ),
@@ -146,6 +167,14 @@ public class Utils {
                         target.getCanonicalName()
                 ))
         ).rowsAs(linkType);
+
+        allMemLinkKeys(beanType.getCanonicalName(), sourceKey, target.getCanonicalName(), Couchbeans.LINK_INDEX)
+                .map(Couchbeans::getLink)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(result::add);
+
+        return result;
     }
 
     public static <S, T> List<BeanLink<S, T>> children(S source, Class<T> target) {
@@ -244,13 +273,15 @@ public class Utils {
         return null;
     }
 
-    protected static final ObjectMapper MAPPER = new ObjectMapper();
-
     public static <T> Optional<T> fetchObject(Class<T> type, String key) {
+        return (Optional<T>) fetchObject(type.getCanonicalName(), key);
+    }
+
+    public static Optional fetchObject(String type, String key) {
         return Optional.ofNullable(Couchbeans.SCOPE.collection(collectionName(type)))
                 .map(c -> c.get(key))
                 .filter(Objects::nonNull)
-                .map(gr -> gr.contentAs(type));
+                .map(gr -> gr.contentAs(Couchbeans.getBeanType(type).get()));
     }
 
     protected static Set<String> inheritanceDescriptorChain(Class of) {
@@ -282,18 +313,26 @@ public class Utils {
     }
 
     public static <S, T> Optional<BeanLink<S, T>> linkBetween(S source, T target) {
-        return Couchbeans.SCOPE.query(
-                String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3 AND targetKey = $4", collectionRef(collectionName(BeanLink.class))),
-                QueryOptions.queryOptions().parameters(JsonArray.from(
-                        source.getClass().getCanonicalName(), Couchbeans.key(source),
-                        target.getClass().getCanonicalName(), Couchbeans.key(target)
-                ))
-        ).rowsAs((Class<BeanLink<S, T>>) ((Class<?>) BeanLink.class)).stream().findFirst();
+        String tKey = Couchbeans.key(target);
+        return allMemLinkKeys(source.getClass().getCanonicalName(), Couchbeans.key(source), target.getClass().getCanonicalName(), Couchbeans.LINK_INDEX)
+                .map(Couchbeans::getLink)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(l -> tKey.equals(l.targetKey()))
+                .map(l -> Optional.of((BeanLink<S, T>) l))
+                .findFirst()
+                .orElseGet(() -> Couchbeans.SCOPE.query(
+                        String.format("SELECT * FROM %s WHERE sourceType = $1 AND sourceKey = $2 AND targetType = $3 AND targetKey = $4", collectionRef(collectionName(BeanLink.class))),
+                        QueryOptions.queryOptions().parameters(JsonArray.from(
+                                source.getClass().getCanonicalName(), Couchbeans.key(source),
+                                target.getClass().getCanonicalName(), Couchbeans.key(target)
+                        ))
+                ).rowsAs((Class<BeanLink<S, T>>) ((Class<?>) BeanLink.class)).stream().findFirst());
     }
 
     public static BeanScope scope(Object bean) {
         Class type = bean.getClass();
-        return (type.isAnnotationPresent(Scope.class)) ? ((Scope) type.getAnnotation(Scope.class)).value() : BeanScope.NORMAL;
+        return (type.isAnnotationPresent(Scope.class)) ? ((Scope) type.getAnnotation(Scope.class)).value() : BeanScope.BUCKET;
     }
 
     public static Optional<Method> getSetter(Class type, String key) {
@@ -333,10 +372,13 @@ public class Utils {
     }
 
     public static boolean hasParents(String type, String key) {
-        return Couchbeans.SCOPE.query(
-                String.format("SELECT 1 FROM %s WHERE `targetType` = $1 AND `targetKey` = $2 LIMIT 1", collectionRef(collectionName(BeanLink.class))),
-                QueryOptions.queryOptions().parameters(JsonArray.from(type, key))
-        ).rowsAsObject().stream().findAny().isPresent();
+        return allMemLinkKeys(type, key, Couchbeans.REVERSE_LINK_INDEX)
+                .map(lk -> true)
+                .findFirst()
+                .orElseGet(() -> Couchbeans.SCOPE.query(
+                        String.format("SELECT 1 FROM %s WHERE `targetType` = $1 AND `targetKey` = $2 LIMIT 1", collectionRef(collectionName(BeanLink.class))),
+                        QueryOptions.queryOptions().parameters(JsonArray.from(type, key))
+                ).rowsAsObject().stream().findAny().isPresent());
     }
 
     public static Collection ensureCollectionExists(Class<?> aClass) {
@@ -399,10 +441,9 @@ public class Utils {
     }
 
     private static String collectionName(CtClass ctClass) {
-        return ctClass.getName().replaceAll("\\.", "-");
+        return collectionName(ctClass.getName());
     }
 
-    public final static String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
     public static int injectClassloader(Class main, String[] args) {
         if (System.getProperty("java.system.class.loader", "").equals(CouchbaseClassLoader.class.getCanonicalName())) {
             return -1;
@@ -439,5 +480,89 @@ public class Utils {
             e.printStackTrace();
             return 1;
         }
+    }
+
+    public static Optional<String> env(String key) {
+        if (!ENV.containsKey(key)) {
+            return Optional.empty();
+        }
+        return Optional.of(ENV.get(key));
+    }
+
+    public static List<BeanLink> allChildLinks(String beanType, String key) {
+        List<BeanLink> result = Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE `sourceType` = $1 AND `sourceKey` = $2", collectionRef(beanType)),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        beanType, key
+                ))
+        ).rowsAs(BeanLink.class);
+
+        allMemLinkKeys(beanType, key, Couchbeans.LINK_INDEX)
+                .map(k -> Couchbeans.get(BeanLink.class, k))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(result::add);
+
+        return result;
+    }
+
+    public static List<BeanLink> allParentLinks(String beanType, String key) {
+        List<BeanLink> result = Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s WHERE `targetType` = $1 AND `targetKey` = $2", collectionRef(beanType)),
+                QueryOptions.queryOptions().parameters(JsonArray.from(
+                        beanType, key
+                ))
+        ).rowsAs(BeanLink.class);
+
+        allMemLinkKeys(beanType, key, Couchbeans.REVERSE_LINK_INDEX)
+                .map(k -> Couchbeans.get(BeanLink.class, k))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(result::add);
+
+        return result;
+    }
+
+    public static Stream<String> allMemLinkKeys(String beanType, String key, Map<String, Map<String, Map<String, Set<String>>>> index) {
+        return index.getOrDefault(beanType, (Map<String, Map<String, Set<String>>>) Collections.EMPTY_MAP)
+                .getOrDefault(key, (Map<String, Set<String>>) Collections.EMPTY_MAP)
+                .values().stream()
+                .flatMap(Set::stream);
+    }
+
+    public static Stream<String> allMemLinkKeys(String beanType, String key, String otherType, Map<String, Map<String, Map<String, Set<String>>>> index) {
+        return index.getOrDefault(beanType, (Map<String, Map<String, Set<String>>>) Collections.EMPTY_MAP)
+                .getOrDefault(key, (Map<String, Set<String>>) Collections.EMPTY_MAP)
+                .getOrDefault(otherType, (Set<String>) Collections.EMPTY_SET)
+                .stream();
+    }
+    public static List<BeanLink> allParentLinks(Object bean) {
+        return allParentLinks(bean.getClass().getCanonicalName(), Couchbeans.key(bean));
+    }
+    public static List<BeanLink> allChildLinks(Object bean) {
+        return allChildLinks(bean.getClass().getCanonicalName(), Couchbeans.key(bean));
+    }
+
+    public static void updateBean(Object bean, String oldSource, String newSource) throws JsonProcessingException {
+        Class type = bean.getClass();
+        Map<String, Object> oldValues = JsonObject.fromJson(oldSource).toMap();
+        Map<String, Object> newValues = JsonObject.fromJson(newSource).toMap();
+        Object clone = Utils.MAPPER.readValue(newSource, type);
+        Streams.concat(oldValues.keySet().stream(), newValues.keySet().stream())
+                .distinct()
+                .filter(key ->
+                        newValues.containsKey(key) != oldValues.containsKey(key) ||
+                                !Objects.equals(newValues.get(key), oldValues.get(key))
+                )
+                .forEach(key -> {
+                    Utils.getSetter(type, key).ifPresent(setter -> {
+                        try {
+                            Field f = type.getField(key);
+                            setter.invoke(bean, f.get(clone));
+                        } catch (NoSuchFieldException | InvocationTargetException | IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                });
     }
 }

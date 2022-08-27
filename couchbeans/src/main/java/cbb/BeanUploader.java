@@ -80,19 +80,25 @@ public class BeanUploader {
                 .flatMap(path -> processPath(cp, path).stream())
                 .forEach(ci -> {
                     try {
-                        Class type;
-                        try {
-                            type = Class.forName(ci.className(), true, CouchbaseClassLoader.INSTANCE);
-                        } catch (ClassNotFoundException cnfe) {
-                            type = cp.get(ci.className()).toClass(CouchbaseClassLoader.INSTANCE, null);
-                        }
-                        if (ci.scope().isAutoCreated()) {
-                                Object bean = Class.forName(ci.className(), true, CouchbaseClassLoader.INSTANCE).getConstructor().newInstance();
+                        Class type = Couchbeans.getBeanType(ci.className()).orElseGet(() ->
+                        {
+                            try {
+                                return cp.get(ci.className()).toClass(CouchbaseClassLoader.INSTANCE, null);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+                        if (ci.scope() == BeanScope.GLOBAL) {
+                                Object bean = type.getConstructor().newInstance();
                                 System.out.println("Creating singleton for bean " + ci.className());
-                                Singleton singleton = new Singleton(bean);
-                                String key = Couchbeans.store(singleton);
-                                System.out.println(String.format("Auto-created %s singleton of type %s", key, ci.className()));
-                        } else if (ci.scope() != BeanScope.LOCAL) {
+                                Singleton singleton = new Singleton(ci.className());
+                                if (Boolean.getBoolean(Utils.envOrDefault("CBB_REINITIALIZE", "false").toLowerCase())) {
+                                    Couchbeans.store(singleton);
+                                    System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
+                                } else if (Couchbeans.storeIfNotExists(singleton)) {
+                                    System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
+                                }
+                        } else if (ci.scope() == BeanScope.BUCKET) {
                             Utils.ensureCollectionExists(type);
                         }
                     } catch (Exception e) {
