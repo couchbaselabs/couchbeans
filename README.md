@@ -80,6 +80,7 @@ For example, `WebServer::setRunning(Boolean isRunning)` method that reacts to ch
 ## Node affinity
 Use `CBB_NODE_TAGS` environment variable when starting a node to provide a comma-separated list of tags for the node.
 Use `@TargetNodes` annotation on a bean class to specify tags that a node should have in order to own the bean.
+Use `CBB_NODE_IGNORE_PACKAGES` to provide a comma-separated list of package names that should never be owned by the node.
 
 ## Bean scopes
 | Scope | Description | Example |
