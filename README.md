@@ -7,7 +7,7 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 # Examples
 ## Echo server
 Check out the `echo-server` example in the `examples` directory. 
-When uploaded to a CBB cluster, the `EchoServer` global bean will wait for its `running` field to be set to `true` and then it will open an ICMP echo server on port `port` which will register all recieved requests as `EchoRequest` beans linked to the `EchoServer` bean.
+When uploaded to a CBB cluster, the `EchoServer` global bean will be deployed on all cluster nodes (except for nodes configured to ignore it), where it will wait for its `running` field to be set to `true` and then it will open an ICMP echo server on port `port` which will register all recieved requests as `EchoRequest` beans linked to the `EchoServer` bean.
 ## Chat server
 Under development
 ## Grapql server
