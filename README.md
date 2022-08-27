@@ -66,7 +66,7 @@ Use `@TargetNodes` annotation on a bean class to specify tags that a node should
 ## Bean scopes
 | Scope | Description | Example |
 | -- | -- | -- |
-| MEMORY | Memory beans belong only to the node on which they were created and are never stored on the bucket | An API request that is being processed |
+| MEMORY | Memory beans belong only to the node on which they were created and are never stored on the bucket but still can be linked with other beans | An API request that is being processed |
 | BUCKET | Just your regular friendly neighborhood graph vertice stored on the couchbase bucket | Any data bean |
 | NODE | `NODE` beans are created for each node connected to the bucket and owned by that node | NodeInfo beans |
 | GLOBAL | `GLOBAL` beans are created when their types are uploaded onto the cluster | Application configuration and status bean |
