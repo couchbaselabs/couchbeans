@@ -62,11 +62,9 @@ public class BeanUploader {
     protected static void ensureDbStructure() {
         Utils.createCollectionIfNotExists(App.CLASS_COLLECTION_NAME);
         Utils.createPrimaryIndexIfNotExists(App.CLASS_COLLECTION_NAME);
-        Utils.createCollectionIfNotExists(App.METHOD_COLLECTION_NAME);
-        Utils.createPrimaryIndexIfNotExists(App.METHOD_COLLECTION_NAME);
-        Utils.createIndexIfNotExists(App.METHOD_COLLECTION_NAME, "className", "name", "arguments");
-        Utils.createCollectionIfNotExists(ClassInfo.COLLECTION);
-        Utils.createIndexIfNotExists(ClassInfo.COLLECTION, "className", "beanType");
+        Utils.ensureCollectionExists(BeanMethod.class);
+        Utils.ensureCollectionExists(ClassInfo.class);
+        Utils.ensureCollectionExists(BeanLink.class);
     }
 
     private static void processPaths(String[] sources) {

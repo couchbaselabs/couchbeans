@@ -1,5 +1,6 @@
 package cbb;
 
+import cbb.annotations.Index;
 import net.rubygrapefruit.platform.memory.Memory;
 import org.gradle.cache.ManualEvictionInMemoryCache;
 import org.slf4j.Logger;
@@ -9,9 +10,13 @@ import java.util.Optional;
 
 public class BeanLink<S, T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(BeanLink.class);
+    @Index
     private String sourceType;
+    @Index
     private String sourceKey;
+    @Index
     private String targetType;
+    @Index
     private String targetKey;
 
     public BeanLink() {

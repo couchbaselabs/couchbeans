@@ -1,5 +1,6 @@
 package cbb;
 
+import cbb.annotations.Index;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import javassist.CtClass;
@@ -22,8 +23,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class BeanMethod {
+    @Index
     private String beanType;
+    @Index
     private String name;
+    @Index
     private List<String> arguments;
 
     private String hash;

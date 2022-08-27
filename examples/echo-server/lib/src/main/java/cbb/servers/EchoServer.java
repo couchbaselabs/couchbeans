@@ -10,6 +10,7 @@ import cbb.annotations.Scope;
 import cbb.requests.EchoRequest;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
@@ -29,27 +30,37 @@ public class EchoServer {
     private short port = 9000;
 
     private static transient Thread serverThread;
+    private static transient ServerSocket serverSocket;
 
     private class ServerThread extends Thread {
         @Override
         public void run() {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
+                EchoServer.serverSocket = serverSocket;
                 while (!(this.isInterrupted() || serverSocket.isClosed())) {
+                    String message;
+                    String remote;
                     try (Socket socket = serverSocket.accept()) {
                         InputStream in = socket.getInputStream();
                         InputStreamReader inr = new InputStreamReader(in);
                         BufferedReader br = new BufferedReader(inr);
-                        String message = br.readLine();
-                        EchoRequest request = new EchoRequest(message, socket.getRemoteSocketAddress().toString());
-                        Couchbeans.store(request);
-                        Couchbeans.link(EchoServer.this, request);
+                        message = br.readLine();
+                        remote = socket.getRemoteSocketAddress().toString();
                         PrintStream ps = new PrintStream(socket.getOutputStream());
                         ps.println(message);
+                    } catch (Exception e) {
+                        continue;
                     }
+                    EchoRequest request = new EchoRequest(message, remote);
+                    Couchbeans.store(request);
+                    Couchbeans.link(EchoServer.this, request);
                 }
             } catch (Exception e) {
-                BeanException.report(EchoServer.this, e);
+                if (!e.getMessage().contains("Socket closed")) {
+                    BeanException.report(EchoServer.this, e);
+                }
             } finally {
+                serverSocket = null;
                 running = false;
                 Couchbeans.store(EchoServer.this);
             }
@@ -69,7 +80,7 @@ public class EchoServer {
      * This is a boolean value handler
      * CBB will call it when the corresponding field (running) is set to FALSE on an instance of the bean
      */
-    private void whenNotRunning() {
+    private void whenNotRunning() throws IOException {
         stop();
     }
 
@@ -77,7 +88,7 @@ public class EchoServer {
         this.port = port;
     }
 
-    private void restart() {
+    private void restart() throws IOException {
         stop();
         start();
     }
@@ -90,10 +101,11 @@ public class EchoServer {
         }
     }
 
-    private void stop() {
+    private void stop() throws IOException {
         System.out.println("Stopping the echo server...");
-        serverThread.interrupt();
-        serverThread.stop();
+        if (serverSocket != null) {
+            serverSocket.close();
+        }
     }
 
     private void linkChild(EchoRequest request) {

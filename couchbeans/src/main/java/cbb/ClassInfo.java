@@ -1,13 +1,16 @@
 package cbb;
 
+import cbb.annotations.Index;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.query.QueryOptions;
 import javassist.CtClass;
 
 public class ClassInfo {
     public static final String COLLECTION = Utils.collectionName(ClassInfo.class);
+    @Index
     private String className;
 
+    @Index
     private BeanScope beanScope;
 
     public ClassInfo() {

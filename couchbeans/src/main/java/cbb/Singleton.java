@@ -77,4 +77,8 @@ public class Singleton {
     public String getSource() {
         return source;
     }
+
+    protected void setSource(String source) {
+        this.source = source;
+    }
 }

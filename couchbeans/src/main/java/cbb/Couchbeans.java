@@ -12,6 +12,7 @@ import com.couchbase.client.java.env.ClusterEnvironment;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.gradle.internal.impldep.org.glassfish.jaxb.runtime.v2.runtime.unmarshaller.XsiNilLoader;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -133,7 +134,18 @@ public class Couchbeans {
                 MEMBEANS.put(beanType, Collections.synchronizedMap(new WeakHashMap<>()));
             }
             MEMBEANS.get(beanType).put(key, bean);
+        } else if (BeanScope.get(bean) == BeanScope.GLOBAL) {
+            try {
+                Singleton singleton = Singleton.get(bean);
+                String source = Utils.MAPPER.writeValueAsString(bean);
+                singleton.setSource(source);
+                Utils.ensureCollectionExists(Singleton.class);
+                SCOPE.collection(Utils.collectionName(Singleton.class)).upsert(key(singleton), singleton);
+            } catch (JsonProcessingException e) {
+                BeanException.report(bean, e);
+            }
         } else {
+            Utils.ensureCollectionExists(BeanInfo.class);
             Utils.ensureCollectionExists(bean.getClass());
             if (owned(bean)) {
                 try {
@@ -142,11 +154,12 @@ public class Couchbeans {
                     Utils.getBeanInfo(beanTypeName, key).ifPresentOrElse(bi -> {
                                 Utils.updateBean(bean, bi.lastAppliedSource(), source, false);
                                 bi.setLastAppliedSource(source);
-                                store(bi);
+                                SCOPE.collection(Utils.collectionName(BeanInfo.class)).upsert(key(bi), bi);
                             },
                             () -> {
                                 Utils.updateBean(bean, "{}", source, false);
-                                store(new BeanInfo(beanTypeName, key, source));
+                                BeanInfo bi = new BeanInfo(beanTypeName, key, source);
+                                SCOPE.collection(Utils.collectionName(BeanInfo.class)).upsert(key(bi), bi);
                             }
                     );
                 } catch (JsonProcessingException e) {
