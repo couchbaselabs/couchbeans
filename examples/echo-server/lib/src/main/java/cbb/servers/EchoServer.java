@@ -59,7 +59,7 @@ public class EchoServer {
 
     /**
      * This is a boolean value handler
-     * CBB will call it when the corresponding field (running) is set to true on this instance of the bean
+     * CBB will call it when the corresponding field (running) is set to TRUE on an instance of the bean
      */
     private void whenRunning() {
         System.out.println("whenRunning");
@@ -69,6 +69,10 @@ public class EchoServer {
         }
     }
 
+    /**
+     * This is a boolean value handler
+     * CBB will call it when the corresponding field (running) is set to FALSE on an instance of the bean
+     */
     private void whenNotRunning() {
         System.out.println("whenNotRunning");
         serverThread.interrupt();
