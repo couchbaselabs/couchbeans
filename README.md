@@ -12,6 +12,24 @@ Loads jvm bytecode and its metadata onto couchbase cluster and executes it by li
 ## Document mapping
 Couchbeans maps documents onto java beans using collection names, for example a bean of class `com.example.Example` will be stored as a json document into collection `com-example-Example`. 
 
+## Bean ownership 
+Depending on node type, bean scope and node and bean tags (described below), a node can either "own" the bean or load it as a "foreign" bean. Specific differences between "owned" and "foreign" beans are described below.
+
+### Field setters and value handlers
+Couchbeans will deffer setter calls made on foreign beans so that any associated bean call is executed only on the node that owns the bean. 
+When processing a DCP message:
+- couchbeans will uses setters that match these patterns (in the order of preference):
+ - `<fieldname>(<fieldtype>)`
+ - `set<Fieldname>(<fieldtype>)`
+- depending on the field value type, couchbase will also invoke value handler methods that match these rules:
+ - For boolean:
+  - when `true`: `when<Field>()`
+  - when `false`: `whenNot<Field>()`
+ - for any other type: `when<Field>Is<Value>()` (i.g.: `whenCounterIs0()`)
+
+> would be nice to implement more complicated matching like `whenCounterIsAbove10`, `whenCounterIsNot0`, etc...
+
+
 ## Uploading bean definitions
 ### Via CLI
 This project provides `com.couchbeans.BeanUploader` main class that accepts paths to directories, jars and class files and recursively uploads class definitions and metadata as bean definitions onto couchbase cluster. Use environment to configure bean destinations:
