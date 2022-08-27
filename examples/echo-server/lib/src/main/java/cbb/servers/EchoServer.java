@@ -93,5 +93,10 @@ public class EchoServer {
     private void stop() {
         System.out.println("Stopping the echo server...");
         serverThread.interrupt();
+        serverThread.stop();
+    }
+
+    private void linkChild(EchoRequest request) {
+        System.out.println(String.format("Received echo request '%s' from %s", request.getMessage(), request.getSource()));
     }
 }

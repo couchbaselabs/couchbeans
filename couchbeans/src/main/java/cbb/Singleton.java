@@ -53,15 +53,18 @@ public class Singleton {
     }
 
     public Object update(String source) throws JsonProcessingException {
+        if (this.source == null) {
+            this.source = "{}";
+        }
         JsonObject parsed = JsonObject.fromJson(source);
         Object bean = get();
-        Utils.updateBean(bean, this.source, parsed.getString(source), true);
+        Utils.updateBean(bean, this.source, parsed.getString("source"), true);
         this.source = source;
         return bean;
     }
     public static void initializeNode() {
         Utils.getAllSingletons().forEach(singleton -> {
-            System.out.println(String.format("Initializing singleton: %s", singleton.getClass().getCanonicalName()));
+            System.out.println(String.format("Initializing singleton: %s", singleton.beanType()));
             singleton.get();
             INSTANCES.put(singleton.beanType(), singleton);
         });
