@@ -6,12 +6,14 @@ import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Streams;
 import cbb.annotations.Index;
 import javassist.CtClass;
 import javassist.CtField;
 import javassist.NotFoundException;
+import org.gradle.internal.impldep.org.codehaus.plexus.util.StringUtils;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -335,26 +337,22 @@ public class Utils {
         return (type.isAnnotationPresent(Scope.class)) ? ((Scope) type.getAnnotation(Scope.class)).value() : BeanScope.BUCKET;
     }
 
-    public static Optional<Method> getSetter(Class type, String key) {
+    public static Optional<Method> getSetter(Class type, Field field) {
+        String key = field.getName();
+        Class fieldType = field.getType();
         try {
-            Field field = type.getField(key);
-            Class fieldType = field.getType();
+            return Optional.of(type.getMethod(key, fieldType));
+        } catch (NoSuchMethodException e) {
             try {
-                return Optional.of(type.getMethod(key, fieldType));
-            } catch (NoSuchMethodException e) {
-                try {
-                    return Optional.of(
-                            type.getMethod(
-                                    "set" + key.substring(0, 1).toUpperCase(Locale.ROOT) +
-                                            ((key.length() > 1) ? key.substring(1) : ""),
-                                    fieldType
-                            ));
-                } catch (NoSuchMethodException ex) {
-                    return Optional.empty();
-                }
+                return Optional.of(
+                        type.getMethod(
+                                "set" + key.substring(0, 1).toUpperCase(Locale.ROOT) +
+                                        ((key.length() > 1) ? key.substring(1) : ""),
+                                fieldType
+                        ));
+            } catch (NoSuchMethodException ex) {
+                return Optional.empty();
             }
-        } catch (NoSuchFieldException e) {
-            return Optional.empty();
         }
     }
 
@@ -536,33 +534,115 @@ public class Utils {
                 .getOrDefault(otherType, (Set<String>) Collections.EMPTY_SET)
                 .stream();
     }
+
     public static List<BeanLink> allParentLinks(Object bean) {
         return allParentLinks(bean.getClass().getCanonicalName(), Couchbeans.key(bean));
     }
+
     public static List<BeanLink> allChildLinks(Object bean) {
         return allChildLinks(bean.getClass().getCanonicalName(), Couchbeans.key(bean));
     }
 
-    public static void updateBean(Object bean, String oldSource, String newSource) throws JsonProcessingException {
-        Class type = bean.getClass();
-        Map<String, Object> oldValues = JsonObject.fromJson(oldSource).toMap();
-        Map<String, Object> newValues = JsonObject.fromJson(newSource).toMap();
-        Object clone = Utils.MAPPER.readValue(newSource, type);
-        Streams.concat(oldValues.keySet().stream(), newValues.keySet().stream())
-                .distinct()
-                .filter(key ->
-                        newValues.containsKey(key) != oldValues.containsKey(key) ||
-                                !Objects.equals(newValues.get(key), oldValues.get(key))
-                )
-                .forEach(key -> {
-                    Utils.getSetter(type, key).ifPresent(setter -> {
-                        try {
-                            Field f = type.getField(key);
-                            setter.invoke(bean, f.get(clone));
-                        } catch (NoSuchFieldException | InvocationTargetException | IllegalAccessException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                });
+    public static void updateBean(Object bean, String oldSource, String newSource, boolean callSetters) {
+        try {
+            Class type = bean.getClass();
+            Map<String, Object> oldValues = JsonObject.fromJson(oldSource).toMap();
+            Map<String, Object> newValues = JsonObject.fromJson(newSource).toMap();
+            Object clone = Utils.MAPPER.readValue(newSource, type);
+            Streams.concat(oldValues.keySet().stream(), newValues.keySet().stream())
+                    .distinct()
+                    .filter(key ->
+                            newValues.containsKey(key) != oldValues.containsKey(key) ||
+                                    !Objects.equals(newValues.get(key), oldValues.get(key))
+                    )
+                    .forEach(key -> getField(type, key).ifPresent(field -> {
+                                Object value = getFieldValue(clone, field);
+                                if (callSetters) {
+                                    setFieldValueUsingMethods(bean, field, value);
+                                } else {
+                                    invokeValueHandler(bean, field, value);
+                                }
+                            }
+                    ));
+        } catch (JsonMappingException e) {
+            throw new RuntimeException(e);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Object getFieldValue(Object source, Field field) {
+        try {
+            field.setAccessible(true);
+            return field.get(source);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void setFieldValue(Object target, Field field, Object value) {
+        field.setAccessible(true);
+        try {
+            field.set(target, value);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Optional<Field> getField(Class from, String key) {
+        try {
+            return Optional.of(from.getDeclaredField(key));
+        } catch (NoSuchFieldException e) {
+            Class sup = from.getSuperclass();
+            if (sup != Object.class) {
+                return getField(sup, key);
+            }
+            return Optional.empty();
+        }
+    }
+
+    public static void setFieldValueUsingMethods(Object bean, Field field, Object value) {
+        Class beanType = bean.getClass();
+        Utils.getSetter(beanType, field).ifPresentOrElse(
+                setter -> invokeSetter(bean, setter, value),
+                () -> setFieldValue(bean, field, value)
+        );
+        invokeValueHandler(bean, field, value);
+    }
+
+    public static void invokeSetter(Object bean, Method setter, Object value) {
+        try {
+            setter.setAccessible(true);
+            setter.invoke(bean, value);
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void invokeValueHandler(Object bean, Field field, Object value) {
+        String svalue = StringUtils.capitalise(String.valueOf(value));
+        String fname = StringUtils.capitalise(field.getName());
+        try {
+            String hname;
+            if (field.getType() == Boolean.class) {
+                hname = String.format("when%s%s", Boolean.TRUE.equals(value) ? "" : "Not", fname);
+            } else {
+                hname = String.format("when%sIs%s", fname, svalue);
+            }
+
+            Method handler = bean.getClass().getMethod(hname);
+            handler.setAccessible(true);
+            handler.invoke(bean);
+        } catch (InvocationTargetException e) {
+            BeanException.report(bean, e);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+
+        }
+    }
+
+    public static List<Singleton> getAllSingletons() {
+        return Couchbeans.SCOPE.query(
+                String.format("SELECT * FROM %s", collectionRef(collectionName(Singleton.class)))
+        ).rowsAs(Singleton.class);
     }
 }

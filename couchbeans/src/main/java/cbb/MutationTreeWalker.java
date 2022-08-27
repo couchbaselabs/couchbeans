@@ -109,7 +109,7 @@ public class MutationTreeWalker {
     }
 
     /**
-     * Uses the path provider to perform a recursive BFS graph traversal and returns all traversed paths
+     * Uses the path provider to perform a recursive depth-first graph traversal and returns all traversed paths
      *
      * @param bean current (or start) bean
      * @param pathKeys array of keys for visited in the path nodes. Used to detect loops in the graph

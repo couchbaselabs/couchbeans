@@ -71,6 +71,7 @@ public class Node {
 
     protected void setRunning(boolean isRunning) {
         this.running = isRunning;
+        Couchbeans.store(this);
     }
 
     public boolean isRunning() {

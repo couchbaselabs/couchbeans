@@ -52,8 +52,15 @@ public class Singleton {
 
     public Object update(String source) throws JsonProcessingException {
         Object bean = get();
-        Utils.updateBean(bean, this.source, source);
+        Utils.updateBean(bean, this.source, source, true);
         this.source = source;
         return bean;
+    }
+    public static void initializeNode() {
+        Utils.getAllSingletons().forEach(singleton -> INSTANCES.put(singleton.beanType(), singleton));
+    }
+
+    private String beanType() {
+        return beanType;
     }
 }

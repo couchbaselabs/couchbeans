@@ -10,6 +10,7 @@ import com.couchbase.client.java.codec.JsonSerializer;
 import com.couchbase.client.java.env.ClusterEnvironment;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -116,6 +117,7 @@ public class Couchbeans {
     public static String store(Object bean) {
         String key = key(bean);
         Class beanType = bean.getClass();
+
         if (BeanScope.get(bean) == BeanScope.MEMORY) {
             if (beanType == BeanLink.class) {
                 // update the indexes
@@ -129,6 +131,24 @@ public class Couchbeans {
             MEMBEANS.get(beanType).put(key, bean);
         } else {
             Utils.ensureCollectionExists(bean.getClass());
+            if (owned(bean)) {
+                try {
+                    String beanTypeName = beanType.getCanonicalName();
+                    String source = Utils.MAPPER.writeValueAsString(bean);
+                    Utils.getBeanInfo(beanTypeName, key).ifPresentOrElse(bi -> {
+                                Utils.updateBean(bean, bi.lastAppliedSource(), source, false);
+                                bi.setLastAppliedSource(source);
+                                store(bi);
+                            },
+                            () -> {
+                                Utils.updateBean(bean, "{}", source, false);
+                                store(new BeanInfo(beanTypeName, key, source));
+                            }
+                    );
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             SCOPE.collection(Utils.collectionName(bean.getClass())).upsert(key, bean);
         }
         return key;
@@ -186,9 +206,9 @@ public class Couchbeans {
 
     public static <T> Optional<T> firstChild(Class<?> beanType, String key, Class<T> targetType) {
         return Utils.children(beanType, key, targetType)
-                    .stream()
-                    .findFirst()
-                    .map(l -> (T) l.target());
+                .stream()
+                .findFirst()
+                .map(l -> (T) l.target());
     }
 
     public static boolean storeIfNotExists(Singleton singleton) {
@@ -210,7 +230,7 @@ public class Couchbeans {
 
     public static Optional<Class> getBeanType(String name) {
         try {
-            return Optional.of(Class.forName(name,true, CouchbaseClassLoader.INSTANCE));
+            return Optional.of(Class.forName(name, true, CouchbaseClassLoader.INSTANCE));
         } catch (ClassNotFoundException e) {
             return Optional.empty();
         }

@@ -35,6 +35,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
     public static void main(String... args) {
         RUNNING.set(true);
         Couchbeans.NODE.setRunning(true);
+        Singleton.initializeNode();
         CLIENT.controlEventHandler(INSTANCE);
         CLIENT.dataEventHandler(INSTANCE);
 
@@ -111,7 +112,6 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
             } else if (targetClass.getPackageName().startsWith("java")) {
                 return;
             } else {
-
                 Utils.getBeanInfo(targetClass.getCanonicalName(), ckey.key()).ifPresentOrElse(
                         info -> MutationTreeWalker.processBeanUpdate(info, MessageUtil.getContentAsString(event)),
                         () -> {

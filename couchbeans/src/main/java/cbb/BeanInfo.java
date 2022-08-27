@@ -45,7 +45,7 @@ public class BeanInfo {
     public void incrementRevision() {
         revision++;
     }
-    protected void updateAppliedSource(String source) {
+    protected void setLastAppliedSource(String source) {
         lastAppliedSource = source;
     }
 
@@ -89,7 +89,7 @@ public class BeanInfo {
             return Utils.MAPPER.readValue(source, type);
         } else {
             Object result = Utils.MAPPER.readValue(lastAppliedSource, type);
-            Utils.updateBean(result, lastAppliedSource, source);
+            Utils.updateBean(result, lastAppliedSource, source, true);
             Couchbeans.KEY.put(result, beanKey);
             return result;
         }

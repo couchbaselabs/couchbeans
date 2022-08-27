@@ -50,16 +50,17 @@ public class EchoServer {
     }
 
     public void setRunning(boolean running) {
-        if (this.running != running) {
-            if (running) {
-                if (serverThread == null || !serverThread.isAlive()) {
-                    serverThread = new ServerThread();
-                    serverThread.start();
-                }
-            } else if (serverThread != null && serverThread.isAlive()){
-                serverThread.interrupt();
-            }
-            this.running = running;
+        this.running = running;
+    }
+
+    private void whenRunning() {
+        if (serverThread == null || !serverThread.isAlive()) {
+            serverThread = new ServerThread();
+            serverThread.start();
         }
+    }
+
+    private void whenNotRunning() {
+        serverThread.interrupt();
     }
 }
