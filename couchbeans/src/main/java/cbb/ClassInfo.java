@@ -16,12 +16,12 @@ public class ClassInfo {
 
     public ClassInfo(Class from) {
         this.className = from.getCanonicalName();
-        this.beanScope = BeanScope.get(from);
+        this.beanScope = BeanScope.forType(from);
     }
 
     public ClassInfo(CtClass from) {
         this.className = from.getName();
-        this.beanScope = BeanScope.get(from);
+        this.beanScope = BeanScope.forType(from);
     }
 
     public void className(String name) {

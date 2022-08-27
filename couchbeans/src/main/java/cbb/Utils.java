@@ -659,4 +659,11 @@ public class Utils {
                 String.format("SELECT RAW `%s` FROM %s", collectionName(Singleton.class), collectionRef(collectionName(Singleton.class)))
         ).rowsAs(Singleton.class);
     }
+
+    public static Object unwrapBean(Object bean) {
+        if (bean instanceof Singleton) {
+            return ((Singleton) bean).get();
+        }
+        return bean;
+    }
 }

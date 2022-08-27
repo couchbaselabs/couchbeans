@@ -52,6 +52,9 @@ public class BeanLink<S, T> {
 
     public Optional<T> target() {
         try {
+            if (BeanScope.forType(targetType) == BeanScope.GLOBAL) {
+                return Optional.of((T) Singleton.get(targetType).get());
+            }
             return Couchbeans.get(targetType, targetKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + targetKey + "' of type '" + targetType + "'", e);
@@ -62,6 +65,9 @@ public class BeanLink<S, T> {
 
     public Optional<S> source() {
         try {
+            if (BeanScope.forType(sourceType) == BeanScope.GLOBAL) {
+                return Optional.of((S) Singleton.get(sourceType).get());
+            }
             return Couchbeans.get((Class<S>) Class.forName(sourceType), sourceKey);
         } catch (Exception e) {
             LOGGER.error("Failed to load bean '" + sourceKey + "' of type '" + sourceType + "'", e);

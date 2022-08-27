@@ -16,6 +16,13 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * This is a global bean, which means that it will be constructed and maintained from DCP stream on all nodes
+ * except for those that are prohibited from owning it via `CBB_NODE_IGNORE_PACKAGES`
+ * When constructed, this bean will wait for the `running` field to be set to true
+ * and then launch an ICMP echo server on port `port` that registers all received
+ * echo request as `EchoRequest` beans linked to the `EchoServer` singleton
+ */
 @Scope(BeanScope.GLOBAL)
 public class EchoServer {
     private boolean running;
@@ -49,10 +56,11 @@ public class EchoServer {
         }
     }
 
-    public void setRunning(boolean running) {
-        this.running = running;
-    }
 
+    /**
+     * This is a boolean value handler
+     * CBB will call it when the corresponding field (running) is set to true on this instance of the bean
+     */
     private void whenRunning() {
         System.out.println("whenRunning");
         if (serverThread == null || !serverThread.isAlive()) {

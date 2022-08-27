@@ -98,17 +98,21 @@ public class Couchbeans {
     public static String key(Object bean) {
         synchronized (KEY) {
             if (!KEY.containsKey(bean)) {
-                try {
-                    Method keyMethod = bean.getClass().getMethod("naturalKey");
-                    String key = (String) keyMethod.invoke(bean);
-                    KEY.put(bean, key);
-                    return key;
-                } catch (InvocationTargetException e) {
-                    BeanException.report(bean, e);
-                } catch (Exception e) {
-                    // noop
+                if (BeanScope.get(bean) == BeanScope.GLOBAL) {
+                    KEY.put(bean, bean.getClass().getCanonicalName());
+                } else {
+                    try {
+                        Method keyMethod = bean.getClass().getMethod("naturalKey");
+                        String key = (String) keyMethod.invoke(bean);
+                        KEY.put(bean, key);
+                        return key;
+                    } catch (InvocationTargetException e) {
+                        BeanException.report(bean, e);
+                    } catch (Exception e) {
+                        // noop
+                    }
+                    KEY.put(bean, UUID.randomUUID().toString());
                 }
-                KEY.put(bean, UUID.randomUUID().toString());
             }
         }
         return KEY.get(bean);
@@ -189,8 +193,11 @@ public class Couchbeans {
     }
 
     public static <S, T> BeanLink<S, T> link(S source, T target) {
-        return Utils.linkBetween(source, target).orElseGet(() -> {
-            BeanLink<S, T> result = new BeanLink<S, T>(source, target);
+        Object aSource = BeanScope.get(source) == BeanScope.GLOBAL ? Singleton.get(source) : source;
+        Object aTarget = BeanScope.get(target) == BeanScope.GLOBAL ? Singleton.get(target) : target;
+
+        return (BeanLink<S, T>) Utils.linkBetween(aSource, aTarget).orElseGet(() -> {
+            BeanLink result = new BeanLink(aSource, aTarget);
             store(result);
             return result;
         });

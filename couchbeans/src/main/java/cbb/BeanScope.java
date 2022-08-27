@@ -22,18 +22,22 @@ public enum BeanScope {
         return isAutoCreated;
     }
 
-    public static BeanScope get(Class<?> from) {
+    public static BeanScope forType(Class<?> from) {
         return (from.isAnnotationPresent(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() :
                 from.getCanonicalName().contains("$") ? BeanScope.MEMORY : BeanScope.BUCKET;
     }
 
-    public static BeanScope get(CtClass from) {
+    public static BeanScope forType(CtClass from) {
         try {
             return (from.hasAnnotation(Scope.class)) ? ((Scope) from.getAnnotation(Scope.class)).value() :
                     from.getName().contains("$") ? BeanScope.MEMORY : BeanScope.BUCKET;
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static BeanScope forType(String type) {
+        return forType(Couchbeans.getBeanType(type).orElseThrow());
     }
 
     public static BeanScope get(Object bean) {
@@ -43,14 +47,11 @@ public enum BeanScope {
             if (scopeOverride.getReturnType() == BeanScope.class) {
                 return (BeanScope) scopeOverride.invoke(bean);
             } else {
-                return get(beanType);
+                return forType(beanType);
             }
         } catch (Exception e) {
-            return get(beanType);
+            return forType(beanType);
         }
     }
 
-    private static BeanScope get(String type) {
-        return get(Couchbeans.getBeanType(type).orElseThrow());
-    }
 }

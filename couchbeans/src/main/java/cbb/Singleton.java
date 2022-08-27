@@ -25,6 +25,14 @@ public class Singleton {
         INSTANCES.put(beanType, this);
     }
 
+    public static Singleton get(Object bean) {
+        return get(bean.getClass());
+    }
+
+    public static Singleton get(Class forType) {
+        return get(forType.getCanonicalName());
+    }
+
     public String naturalKey() {
         return beanType == null ? Couchbeans.key(this) : beanType;
     }
