@@ -63,6 +63,7 @@ public class Singleton {
         return bean;
     }
     public static void initializeNode() {
+        Utils.ensureCollectionExists(Singleton.class);
         Utils.getAllSingletons().forEach(singleton -> {
             System.out.println(String.format("Initializing singleton: %s", singleton.beanType()));
             singleton.get();

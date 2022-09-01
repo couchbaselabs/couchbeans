@@ -35,6 +35,7 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
                 .bucket(Couchbeans.CBB_BUCKET)
                 .scopeName(Couchbeans.CBB_SCOPE)
                 .build();
+        BeanUploader.ensureDbStructure();
         RUNNING.set(true);
         Couchbeans.NODE.setRunning(true);
         Singleton.initializeNode();
@@ -106,13 +107,20 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
         String targetType = targetClass.getCanonicalName();
 
         try {
-            if (targetClass.getPackageName().startsWith("cbb")) {
-                if (Singleton.class == targetClass) {
-                    Singleton target = Singleton.get(ckey.key());
-                    target.update(MessageUtil.getContentAsString(event));
-                }
-            } else if (targetClass.getPackageName().startsWith("java")) {
-                return;
+            if (Singleton.class == targetClass) {
+                System.out.println(String.format("Processing singleton '%s", ckey.key()));
+                Singleton target = Singleton.get(ckey.key());
+                target.update(MessageUtil.getContentAsString(event));
+                System.out.println(String.format("Processed singleton '%s", ckey.key()));
+            } else if (Class.class == targetClass) {
+                CouchbaseClassLoader.INSTANCE.reloadClasses();
+            } else if (BeanLink.class == targetClass) {
+                BeanLink link = Utils.MAPPER.readValue(MessageUtil.getContentAsString(event), BeanLink.class);
+                System.out.println(String.format("Processing bean link: %s", link));
+                MutationTreeWalker.processNewBeanLink(link);
+                System.out.println(String.format("Processed bean link: %s", link));
+            } else if (BeanInfo.class == targetClass) {
+                // noop
             } else {
                 Utils.getBeanInfo(targetClass.getCanonicalName(), ckey.key()).ifPresentOrElse(
                         info -> MutationTreeWalker.processBeanUpdate(info, MessageUtil.getContentAsString(event)),
@@ -124,10 +132,12 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
                         }
                 );
             }
-        } catch (Exception e) {
+        } catch (
+                Exception e) {
             BeanException.report(targetType, ckey.key(), e);
             LOGGER.error("Failed to process message", e);
         }
+
     }
 
     private static boolean isJson(ByteBuf event) {

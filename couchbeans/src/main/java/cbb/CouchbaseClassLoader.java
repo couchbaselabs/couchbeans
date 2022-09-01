@@ -4,7 +4,7 @@ import com.couchbase.client.core.error.DocumentNotFoundException;
 import com.couchbase.client.java.kv.GetResult;
 
 public class CouchbaseClassLoader extends ClassLoader {
-    public static ClassLoader INSTANCE = new CouchbaseClassLoader(Thread.currentThread().getContextClassLoader());
+    public static CouchbaseClassLoader INSTANCE = new CouchbaseClassLoader(CouchbaseClassLoader.class.getClassLoader());
 
     public CouchbaseClassLoader(ClassLoader parent) {
         super(parent);
@@ -37,5 +37,10 @@ public class CouchbaseClassLoader extends ClassLoader {
             // noop
         }
         return null;
+    }
+
+    public void reloadClasses() {
+        INSTANCE = new CouchbaseClassLoader(CouchbaseClassLoader.class.getClassLoader());
+        System.out.println("Reloaded all bean definitions");
     }
 }

@@ -29,7 +29,7 @@ public class MutationTreeWalker {
     }
 
     protected static void processBeanLink(BeanLink link, String linkToMethodPattern, String linkChildMethodPattern) {
-        processGraphChange(link.target(), linkToMethodPattern, linkChildMethodPattern);
+        processGraphChange(link.target().get(), linkToMethodPattern, linkChildMethodPattern);
     }
 
     protected static void processGraphChange(Object source, String childMethodNamePattern, String parentMethodNamePattern) {

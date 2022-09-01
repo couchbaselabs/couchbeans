@@ -99,6 +99,7 @@ public class EchoServer {
             serverThread = new ServerThread();
             serverThread.start();
         }
+        System.out.println("Started the echo server.");
     }
 
     private void stop() throws IOException {
@@ -106,9 +107,15 @@ public class EchoServer {
         if (serverSocket != null) {
             serverSocket.close();
         }
+        System.out.println("Stopped the echo server.");
     }
 
-    private void linkChild(EchoRequest request) {
+    /**
+     * This is a link handler
+     * It is called every time a new `EchoRequest` node is linked to the server bean
+     * @param request
+     */
+    public void linkChild(EchoRequest request) {
         System.out.println(String.format("Received echo request '%s' from %s", request.getMessage(), request.getSource()));
     }
 }

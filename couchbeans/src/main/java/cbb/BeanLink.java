@@ -85,4 +85,8 @@ public class BeanLink<S, T> {
         return BeanScope.get(sourceType) == BeanScope.MEMORY || BeanScope.get(targetType) == BeanScope.MEMORY ? BeanScope.MEMORY : BeanScope.BUCKET;
     }
 
+    @Override
+    public String toString() {
+        return String.format("%s(%s) -> %s(%s)", sourceType, sourceKey, targetType, targetKey);
+    }
 }

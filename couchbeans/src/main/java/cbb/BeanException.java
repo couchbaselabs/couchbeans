@@ -8,6 +8,10 @@ public class BeanException {
     private String[] trace;
     private String location;
 
+    public BeanException() {
+
+    }
+
     public BeanException(Throwable e) {
         message = e.getMessage();
         trace = ExceptionUtils.getStackFrames(e);

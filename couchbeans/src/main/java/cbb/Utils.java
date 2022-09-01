@@ -127,8 +127,8 @@ public class Utils {
 
     public static <S> List<BeanLink> parents(S source) {
         return Couchbeans.SCOPE.query(
-                String.format("SELECT * FROM %s WHERE targetType = $1 AND targetKey = $2",
-                        collectionRef(collectionName(source.getClass()))
+                String.format("SELECT RAW `%s` FROM %s WHERE targetType = $1 AND targetKey = $2",
+                        collectionName(source.getClass()), collectionRef(collectionName(source.getClass()))
                 ),
                 QueryOptions.queryOptions().parameters(JsonArray.from(
                         source.getClass().getCanonicalName(),
@@ -395,7 +395,7 @@ public class Utils {
         return Couchbeans.SCOPE.collection(name);
     }
 
-    private static Stream<Field> getFields(Class<?> aClass) {
+    public static Stream<Field> getFields(Class<?> aClass) {
         if (Object.class == aClass) {
             return Stream.empty();
         }
@@ -403,7 +403,7 @@ public class Utils {
         return Streams.concat(Arrays.stream(aClass.getDeclaredFields()), getFields(aClass.getSuperclass()));
     }
 
-    public static Optional<Collection> getExistingCollection(String name) {
+    protected static Optional<Collection> getExistingCollection(String name) {
         return Couchbeans.BUCKET.collections().getAllScopes().stream()
                 .filter(scope -> Couchbeans.CBB_SCOPE.equals(scope.name()))
                 .flatMap(scope -> scope.collections().stream())

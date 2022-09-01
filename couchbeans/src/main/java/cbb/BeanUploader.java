@@ -24,8 +24,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,6 +42,8 @@ public class BeanUploader {
 
     private static Map<String, String> env;
     private static int binaryDocument;
+
+    private static final Set<String> DEFERRED_PATHS = Collections.synchronizedSet(new HashSet<>());
 
     public static void main(String[] args) {
         run(args);
@@ -89,6 +93,9 @@ public class BeanUploader {
             } else {
                 return Arrays.asList(processFile(cp, path));
             }
+        } catch (ClassNotFoundException cnfe) {
+            DEFERRED_PATHS.add(path.toString());
+            return Collections.EMPTY_LIST;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
