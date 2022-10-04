@@ -24,6 +24,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 @cbb.annotations.Scope(BeanScope.GLOBAL)
@@ -253,21 +255,17 @@ public class Couchbeans {
         return get(BeanLink.class, s);
     }
 
-    public static Optional<Class> getBeanType(String name) {
-        try {
-            return Optional.of(Class.forName(name, true, CouchbaseClassLoader.INSTANCE));
-        } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            return Optional.empty();
-        }
+    public static Class getBeanType(String name) throws ClassNotFoundException {
+        return Class.forName(name, true, CouchbaseClassLoader.INSTANCE);
     }
 
-    public static <T> Optional<T> get(String targetType, String targetKey) {
-        return get(Couchbeans.getBeanType(targetType).orElseThrow(), targetKey);
+    public static <T> T get(String targetType, String targetKey) throws ClassNotFoundException {
+        return (T) get((Class<T>)Couchbeans.getBeanType(targetType), targetKey);
     }
 
     public static Object create(String beanType) {
         try {
-            Object bean = getBeanType(beanType).orElseThrow().getConstructor().newInstance();
+            Object bean = getBeanType(beanType).getConstructor().newInstance();
             key(bean);
             return bean;
         } catch (Exception e) {

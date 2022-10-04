@@ -10,7 +10,7 @@ abstract class UploadBeansTask extends DefaultTask {
     private CouchbeansGradlePlugin plugin
     UploadBeansTask() {
         super()
-        dependsOn(project.tasks.jar)
+        dependsOn(project.tasks.shadowJar)
         plugin = project.plugins.apply(CouchbeansGradlePlugin)
     }
 
@@ -23,7 +23,7 @@ abstract class UploadBeansTask extends DefaultTask {
         Utils.envOverride("CBB_BUCKET", config.getBucket().getOrElse("default"));
         Utils.envOverride("CBB_SCOPE", config.getScope().getOrElse("_default"));
 
-        Jar jarTask = project.tasks.jar;
+        Jar jarTask = project.tasks.shadowJar;
         String[] jars = jarTask.outputs.files.files.stream().map(f -> f.toString()).toArray(String[]::new);
         BeanUploader.run(jars);
     }

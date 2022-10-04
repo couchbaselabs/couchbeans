@@ -16,11 +16,15 @@ import javassist.CtField;
 import javassist.NotFoundException;
 import org.apache.commons.lang3.StringUtils;
 
+import javax.swing.text.AbstractDocument;
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,7 +49,7 @@ public class Utils {
         return collectionName(from.getCanonicalName());
     }
 
-    public static Optional<Class> collectionClass(String collectionName) {
+    public static Class collectionClass(String collectionName) throws ClassNotFoundException {
         return Couchbeans.getBeanType(collectionName.replaceAll("-", "."));
     }
 
@@ -284,7 +288,13 @@ public class Utils {
         return Optional.ofNullable(Couchbeans.SCOPE.collection(collectionName(type)))
                 .map(c -> c.get(key))
                 .filter(Objects::nonNull)
-                .map(gr -> gr.contentAs(Couchbeans.getBeanType(type).get()));
+                .map(gr -> {
+                    try {
+                        return gr.contentAs(Couchbeans.getBeanType(type));
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     protected static Set<String> inheritanceDescriptorChain(Class of) {
@@ -395,7 +405,7 @@ public class Utils {
         return Couchbeans.SCOPE.collection(name);
     }
 
-    private static Stream<Field> getFields(Class<?> aClass) {
+    public static Stream<Field> getFields(Class<?> aClass) {
         if (Object.class == aClass) {
             return Stream.empty();
         }
@@ -665,5 +675,19 @@ public class Utils {
             return ((Singleton) bean).get();
         }
         return bean;
+    }
+
+    public static String toId(String string) {
+        try {
+            byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
+            if (bytes.length > 248) {
+                MessageDigest digest = MessageDigest.getInstance("SHA-512");
+                digest.update(bytes);
+                return new StringBuilder(String.valueOf(bytes.length)).append(new String(digest.digest())).toString();
+            }
+            return string;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

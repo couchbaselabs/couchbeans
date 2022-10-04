@@ -24,6 +24,7 @@ public class BeanException {
     }
 
     public static void report(String targetType, String key, Throwable e) {
+        e.printStackTrace();
         BeanException be = new BeanException(e);
         Couchbeans.store(be);
         Couchbeans.store(new BeanLink(targetType, key, BeanException.class.getCanonicalName(), Couchbeans.key(be)));
