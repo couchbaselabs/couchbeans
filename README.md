@@ -12,7 +12,7 @@ When uploaded to a CBB cluster, the `EchoServer` global bean will be deployed on
 ## Chat server
 Under development
 ## Grapql server
-Under development
+Graphql server example is not uploadable at the moment, but intended to operate similarly to echo server example.
 
 # (Very) Loose descripion of how this would work:
 ## Document mapping
