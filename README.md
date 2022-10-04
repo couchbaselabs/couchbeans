@@ -13,6 +13,7 @@ When uploaded to a CBB cluster, the `EchoServer` global bean will be deployed on
 Under development
 ## Grapql server
 Graphql server example at the moment provides only schema information as the data loader is not yet implemented.
+To upload the server, change couchbase connection settings in `build.gradle` of the example project and run `gradle uploadCouchbeans` in the example project directory.
 The server can be controlled via `cbb.servers.GraphQLServer` singleton fields `port` and `running`:
 ```
 {"source": "{\"port\":8030,\"running\":true}","beanType": "cbb.servers.GraphQLServer"}
