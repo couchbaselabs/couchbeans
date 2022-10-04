@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -43,7 +42,7 @@ public class BeanUploader {
     private static Map<String, String> env;
     private static int binaryDocument;
 
-    private static final Set<String> DEFERRED_PATHS = Collections.synchronizedSet(new HashSet<>());
+    private static Set<String> classesToMethodIndex = new HashSet<>();
 
     public static void main(String[] args) {
         run(args);
@@ -66,9 +65,12 @@ public class BeanUploader {
     protected static void ensureDbStructure() {
         Utils.createCollectionIfNotExists(App.CLASS_COLLECTION_NAME);
         Utils.createPrimaryIndexIfNotExists(App.CLASS_COLLECTION_NAME);
+        Utils.createCollectionIfNotExists(App.RESOURCE_COLLECTION);
+        Utils.createPrimaryIndexIfNotExists(App.RESOURCE_COLLECTION);
         Utils.ensureCollectionExists(BeanMethod.class);
         Utils.ensureCollectionExists(ClassInfo.class);
         Utils.ensureCollectionExists(BeanLink.class);
+        Utils.ensureCollectionExists(Singleton.class);
     }
 
     private static void processPaths(String[] sources) {
@@ -79,19 +81,18 @@ public class BeanUploader {
         cp.insertClassPath(new ClassClassPath(BeanUploader.class));
         Arrays.stream(sources)
                 .map(Path::of)
-                .flatMap(path -> processPath(cp, path).stream())
-                .forEach(ci -> System.out.println(String.format("Successfully uploaded type '%s'", ci.className())));
+                .forEach(path -> processPath(cp, path));
     }
 
-    private static List<ClassInfo> processPath(ClassPool cp, Path path) {
+    private static void processPath(ClassPool cp, Path path) {
         try {
             System.out.println("Processing path: " + path.toString() + " (is jar: " + path.toString().endsWith(".jar") + ")");
             if (path.toFile().isDirectory()) {
-                return processDirectory(cp, path);
+                processDirectory(cp, path);
             } else if (path.toString().endsWith(".jar")) {
-                return processJar(cp, path);
+                processJar(cp, path);
             } else {
-                return Arrays.asList(processFile(cp, path));
+                processFile(cp, path);
             }
         } catch (ClassNotFoundException cnfe) {
             DEFERRED_PATHS.add(path.toString());
@@ -101,81 +102,81 @@ public class BeanUploader {
         }
     }
 
-    private static List<ClassInfo> processJar(ClassPool cp, Path path) throws Exception {
-        return processZipStream(cp, new FileInputStream(path.toFile()));
+    private static void processJar(ClassPool cp, Path path) throws Exception {
+        processZipStream(cp, new FileInputStream(path.toFile()));
     }
 
-    private static List<ClassInfo> processZipStream(ClassPool cp, InputStream is) throws Exception {
+    private static final String[] IGNORE_ZIP_PATHS = new String[]{
+            "META-INF/.*"
+    };
+
+    private static void processZipStream(ClassPool cp, InputStream is) throws Exception {
         ZipInputStream zis = new ZipInputStream(is);
         ZipEntry entry;
-        List<ClassInfo> result = new ArrayList<>();
         while ((entry = zis.getNextEntry()) != null) {
-            if (!entry.isDirectory()) {
+            System.out.println(String.format("Processing zip entry: %s", entry.getName()));
+            if (!entry.isDirectory() && Arrays.stream(IGNORE_ZIP_PATHS).noneMatch(entry.getName()::matches)) {
                 if (entry.getName().endsWith(".class")) {
-                    result.add(processClass(cp, zis));
+                    processClass(cp, zis);
                 } else if (entry.getName().endsWith(".jar")) {
                     processZipStream(cp, zis);
+                } else {
+                    processResource(entry.getName(), zis);
                 }
             }
             zis.closeEntry();
         }
-        return result;
     }
 
-    private static List<ClassInfo> processDirectory(ClassPool cp, Path directory) throws IOException {
+    private static void processResource(String name, ZipInputStream zis) throws IOException {
+        final BufferedInputStream bin = new BufferedInputStream(zis);
+        Resource resource = new Resource(name, bin.readAllBytes());
+        Couchbeans.SCOPE.collection(App.RESOURCE_COLLECTION).upsert(Utils.toId(name), resource);
+    }
+
+    private static void processDirectory(ClassPool cp, Path directory) throws IOException {
         try (Stream<Path> files = Files.walk(directory)) {
-            return files.filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
-                    .flatMap(path -> processPath(cp, path).stream())
-                    .collect(Collectors.toList());
+            files.filter(f -> f.endsWith(".class") || f.toFile().isDirectory())
+                    .forEach(path -> processPath(cp, path));
         } catch (Exception e) {
             throw new RuntimeException("Failed to process directory '" + directory.toString() + "'", e);
         }
     }
 
-    private static ClassInfo processFile(ClassPool cp, Path path) throws Exception {
+    private static void processFile(ClassPool cp, Path path) throws Exception {
         try {
-            return processClass(cp, new FileInputStream(path.toFile()));
+            processClass(cp, new FileInputStream(path.toFile()));
         } catch (Exception e) {
             throw new RuntimeException("Failed to process file '" + path.toString() + "'", e);
         }
     }
 
-    private static ClassInfo processClass(ClassPool cp, InputStream source) throws Exception {
-        BufferedInputStream bin = new BufferedInputStream(source);
-        CtClass ctClass = cp.makeClass(bin);
-        String name = ctClass.getName();
-        System.out.println(String.format("Processing class %s", name));
+    private static final String[] EXCLUDE_PACKAGES = new String[]{
+    };
 
-        Arrays.stream(ctClass.getMethods())
-                .filter(mi -> !mi.getDeclaringClass().getName().equals(Object.class.getCanonicalName()))
-                .peek(mi -> System.out.println("Analyzing method: " + mi.getSignature()))
-                .peek(BeanUploader::instrumentMethod)
-                .filter(mi -> {
-                    String methodName = mi.getName();
-                    return methodName.startsWith("linkTo")
-                            || methodName.startsWith("unlinkFrom")
-                            || methodName.startsWith("linkChild")
-                            || methodName.startsWith("unlinkChild")
-                            || methodName.startsWith("update");
-                })
-                .forEach(mi -> {
-                    List<String> arguments = getMethodArguments(mi.getMethodInfo().getDescriptor());
-                    if (arguments.size() > 0) {
-                        BeanMethod method = new BeanMethod(mi.getDeclaringClass().getName(), mi.getName(), arguments);
-                        System.out.println("Upserting bean method " + mi.getSignature() + ": " + method.toJsonObject().toString());
-                        metaCollection.upsert(method.getHash(), method.toJsonObject());
-                    }
-                });
+    private static void processClass(ClassPool cp, InputStream source) throws Exception {
+        final BufferedInputStream bin = new BufferedInputStream(source);
+        final CtClass ctClass = cp.makeClass(bin);
+        final String className = ctClass.getName();
+
+        if (Arrays.stream(EXCLUDE_PACKAGES).noneMatch(className::startsWith)) {
+            addClass(cp, ctClass);
+        }
+    }
+
+    private static void addClass(ClassPool cp, CtClass ctClass) throws Exception {
+        String name = ctClass.getName();
+        System.out.println(String.format("Adding class %s", name));
+
+        indexClassMethods(ctClass);
 
         Couchbeans.SCOPE.collection(App.CLASS_COLLECTION_NAME)
                 .upsert(name, ctClass.toBytecode(), UpsertOptions.upsertOptions().transcoder(RawBinaryTranscoder.INSTANCE));
         ClassInfo ci = new ClassInfo(ctClass);
-        Couchbeans.store(ci);
-
-        Class type = Class.forName(ci.className(), false, CouchbaseClassLoader.INSTANCE);
 
         try {
             if (ci.beanScope() == BeanScope.GLOBAL) {
+                Couchbeans.store(ci);
                 System.out.println("Creating singleton for bean " + ci.className());
                 Singleton singleton = new Singleton(ci.className());
                 if (Boolean.parseBoolean(Utils.envOrDefault("CBB_REINITIALIZE", "false").toLowerCase())) {
@@ -185,15 +186,45 @@ public class BeanUploader {
                 } else if (Couchbeans.storeIfNotExists(singleton)) {
                     System.out.println(String.format("Auto-created %s singleton of type %s", Couchbeans.key(singleton), ci.className()));
                 }
-            } else if (ci.beanScope() == BeanScope.BUCKET || ci.beanScope() == BeanScope.NODE) {
-                Utils.ensureCollectionExists(type);
             }
         } catch (Exception e) {
             RuntimeException re = new RuntimeException("Failed to initialize", e);
             BeanException.report(ci, re);
             re.printStackTrace();
         }
-        return ci;
+    }
+
+    private static void scheduleMethodIndex(CtClass ctClass) {
+        System.out.println(String.format("Scheduled method indexing for class %s", ctClass.getName()));
+        classesToMethodIndex.add(ctClass.getName());
+    }
+
+    private static void indexClassMethods(CtClass ctClass) {
+        System.out.println(String.format("Indexing methods for class %s", ctClass.getName()));
+        Arrays.stream(ctClass.getMethods())
+                .filter(mi -> !mi.getDeclaringClass().getName().equals(Object.class.getCanonicalName()))
+                .peek(mi -> System.out.println("Analyzing method: " + mi.getSignature()))
+                .filter(mi -> {
+                    String methodName = mi.getName();
+                    return methodName.startsWith("linkTo")
+                            || methodName.startsWith("unlinkFrom")
+                            || methodName.startsWith("linkChild")
+                            || methodName.startsWith("unlinkChild")
+                            || methodName.startsWith("update");
+                })
+                .peek(BeanUploader::instrumentMethod)
+                .forEach(mi -> {
+                    try {
+                        List<String> arguments = getMethodArguments(mi.getMethodInfo().getDescriptor());
+                        if (arguments.size() > 0) {
+                            BeanMethod method = new BeanMethod(mi.getDeclaringClass().getName(), mi.getName(), arguments);
+                            System.out.println("Upserting bean method " + mi.getSignature() + ": " + method.toJsonObject().toString());
+                            metaCollection.upsert(method.getHash(), method.toJsonObject());
+                        }
+                    } catch (Exception e) {
+                        System.out.println(String.format("Failed to index method %s", mi.getSignature()));
+                    }
+                });
     }
 
     public static boolean interceptSetter(Object bean, String fieldName, Object value) {

@@ -1,6 +1,7 @@
 
 import cbb.BeanScope;
 import cbb.annotations.Scope;
+import cbb.annotations.TargetNodes;
 
 import java.net.http.WebSocket;
 import java.util.Collection;
@@ -12,7 +13,8 @@ import java.util.Map;
  * External beans are global for all external nodes: each external node will maintain a copy of the bean
  * and each copy will be reacting to DCP changes to this bean.
  */
-@Scope(BeanScope.EXTERNAL)
+@Scope(BeanScope.GLOBAL)
+@TargetNodes("external")
 public class ChatServer {
     private int port;
     private boolean running;

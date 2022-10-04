@@ -98,9 +98,10 @@ public class DCPListener implements DataEventHandler, ControlEventHandler {
                 return;
             }
         } else {
-            targetClass = Utils.collectionClass(className).orElse(null);
-            if (targetClass == null) {
-                LOGGER.error("Failed to load class " + className);
+            try {
+                targetClass = Utils.collectionClass(className);
+            } catch (Exception e) {
+                LOGGER.error("Failed to load class " + className, e);
                 return;
             }
         }

@@ -36,8 +36,8 @@ public enum BeanScope {
         }
     }
 
-    public static BeanScope forType(String type) {
-        return forType(Couchbeans.getBeanType(type).orElseThrow());
+    public static BeanScope forType(String type) throws ClassNotFoundException {
+        return forType(Couchbeans.getBeanType(type));
     }
 
     public static BeanScope get(Object bean) {

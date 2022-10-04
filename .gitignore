@@ -17,4 +17,8 @@ gradle-app.setting
 build
 
 .idea/
+.classpath
+.project
 app/bin/
+.settings/
+/tags
