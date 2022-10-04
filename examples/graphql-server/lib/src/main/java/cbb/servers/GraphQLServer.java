@@ -39,6 +39,8 @@ public class GraphQLServer {
         if (schema == null) {
             schema = SchemaGenerator.generate(Couchbeans.allChildren(this, Class.class));
         }
+        if (server == null) {
+            GraphQLHttpServlet servlet = GraphQLHttpServlet.with(schema);
             ServletHolder holder = new ServletHolder(servlet);
             server = new Server(port);
             ServletContextHandler servletContextHandler = new ServletContextHandler();

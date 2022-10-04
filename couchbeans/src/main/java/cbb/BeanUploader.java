@@ -94,9 +94,6 @@ public class BeanUploader {
             } else {
                 processFile(cp, path);
             }
-        } catch (ClassNotFoundException cnfe) {
-            DEFERRED_PATHS.add(path.toString());
-            return Collections.EMPTY_LIST;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
