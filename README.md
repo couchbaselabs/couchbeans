@@ -12,7 +12,12 @@ When uploaded to a CBB cluster, the `EchoServer` global bean will be deployed on
 ## Chat server
 Under development
 ## Grapql server
-Graphql server example is not uploadable at the moment, but intended to operate similarly to echo server example.
+Graphql server example at the moment provides only schema information as the data loader is not yet implemented.
+The server can be controlled via `cbb.servers.GraphQLServer` singleton fields `port` and `running`:
+```
+{"source": "{\"port\":8030,\"running\":true}","beanType": "cbb.servers.GraphQLServer"}
+```
+This json stored in `cbb-Singleton` collection with id `cbb.servers.GraphQLServer` will configure the server to start on port `8030`.
 
 # (Very) Loose descripion of how this would work:
 ## Document mapping
