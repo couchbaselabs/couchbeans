@@ -20,6 +20,8 @@ The server can be controlled via `cbb.servers.GraphQLServer` singleton fields `p
 ```
 This json stored in `cbb-Singleton` collection with id `cbb.servers.GraphQLServer` will configure the server to start on port `8030`.
 
+To add a type to the GraphQL server, link it to the singleton by creating a `cbb.BeanLink` record.
+
 # (Very) Loose descripion of how this would work:
 ## Document mapping
 Couchbeans maps documents onto java beans using collection names, for example a bean of class `com.example.Example` will be stored as a json document into collection `com-example-Example`. 
