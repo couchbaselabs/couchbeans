@@ -1,6 +1,14 @@
 # Couchbase Beans, aka Couchbeans
 (POC, Under development)
 
+> ** a breaking change is coming! **
+> while working on [matterbeans](https://github.com/chedim/matterbeans), I realized that most of the time was spent on writing getters/setters. 
+> Thus, couchbeans is going to start working in a different way:
+> 1. Interfaces will be used as bean definitions
+> 2. javassist will be used to generate getters/setters that store scalar values in memory but write and read bean objects directly into/from couchbase
+> 
+> Don't have a lot of time to work on this recently and there are still some unresolved design questions so, the project is on pause atm.
+
 Distributed reactive jvm environment with couchbase backend that turns couchbase buckets into self-mutating graph databases using java class structures as graph definitions.
 Loads jvm bytecode and its metadata onto couchbase cluster and executes it by listening to DCP events.
 
